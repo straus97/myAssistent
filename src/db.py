@@ -1,5 +1,5 @@
 # src/db.py
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint, ForeignKey, Float
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 
@@ -30,6 +30,16 @@ class Article(Base):
     __table_args__ = (
         UniqueConstraint('url', name='uq_articles_url'),  # не добавлять дубликаты по URL
     )
+
+# НОВОЕ: Аннотации к статьям (1:1)
+class ArticleAnnotation(Base):
+    __tablename__ = "article_annotations"
+    id = Column(Integer, primary_key=True, index=True)
+    article_id = Column(Integer, ForeignKey("articles.id"), unique=True, index=True, nullable=False)
+    lang = Column(String, nullable=True)          # напр., 'en', 'ru', ...
+    sentiment = Column(Float, nullable=True)      # compound, диапазон [-1..1]
+    tags = Column(Text, nullable=True)            # строки через запятую, например "btc,etf,regulation"
+    created_at = Column(DateTime, default=datetime.now)
 
 # Создаём таблицы, если их ещё нет
 Base.metadata.create_all(bind=engine)

@@ -2,10 +2,11 @@ from fastapi import FastAPI, Depends, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from src.db import SessionLocal, Message, Article
+from src.db import SessionLocal, Message, Article, ArticleAnnotation
 from src.news import fetch_and_store
+from src.analysis import analyze_new_articles
 
-app = FastAPI(title="My Assistant API", version="0.3")
+app = FastAPI(title="My Assistant API", version="0.4")
 
 def get_db():
     db = SessionLocal()
@@ -89,4 +90,59 @@ def news_search(q: str = Query(..., min_length=2), limit: int = 30, db: Session 
             "published_at": r.published_at,
         }
         for r in rows
+    ]
+
+
+# --- НОВОЕ: аналитика ---
+@app.post("/news/analyze")
+def news_analyze(limit: int = 100, db: Session = Depends(get_db)):
+    processed = analyze_new_articles(db, limit=limit)
+    return {"status": "ok", "processed": processed}
+
+@app.get("/news/annotated")
+def news_annotated(limit: int = 20, db: Session = Depends(get_db)):
+    rows = (
+        db.query(Article, ArticleAnnotation)
+        .join(ArticleAnnotation, ArticleAnnotation.article_id == Article.id)
+        .order_by(Article.published_at.desc().nullslast(), Article.id.desc())
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for art, ann in rows:
+        result.append({
+            "id": art.id,
+            "source": art.source,
+            "title": art.title,
+            "url": art.url,
+            "published_at": art.published_at,
+            "lang": ann.lang,
+            "sentiment": ann.sentiment,
+            "tags": ann.tags.split(",") if ann.tags else []
+        })
+    return result
+
+@app.get("/news/by_tag")
+def news_by_tag(tag: str = Query(..., min_length=2), limit: int = 30, db: Session = Depends(get_db)):
+    tag = tag.lower()
+    rows = (
+        db.query(Article, ArticleAnnotation)
+        .join(ArticleAnnotation, ArticleAnnotation.article_id == Article.id)
+        .filter(ArticleAnnotation.tags.ilike(f"%{tag}%"))
+        .order_by(Article.published_at.desc().nullslast(), Article.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": art.id,
+            "source": art.source,
+            "title": art.title,
+            "url": art.url,
+            "published_at": art.published_at,
+            "lang": ann.lang,
+            "sentiment": ann.sentiment,
+            "tags": ann.tags.split(",") if ann.tags else []
+        }
+        for art, ann in rows
     ]

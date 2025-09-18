@@ -27,3 +27,13 @@
   - GET /news/search?q= — поиск по заголовкам/аннотациям.
 - Проверено через /docs: новости подтягиваются и отображаются.
 
+## Шаг 7 — Аналитика новостей (язык, тональность, теги)
+- Установлены: vaderSentiment, langdetect.
+- Добавлена таблица article_annotations (1:1 к articles).
+- Создан модуль src/analysis.py: detect_lang, sentiment_score, extract_tags, analyze_new_articles.
+- В API добавлены маршруты:
+  - POST /news/analyze — анализ N последних неаннотированных статей.
+  - GET /news/annotated — просмотр последних аннотированных.
+  - GET /news/by_tag?tag=... — выборка статей по тегу.
+- Проверено через /docs: анализ выполняется, теги и тональность видны.
+
