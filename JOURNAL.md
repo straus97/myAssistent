@@ -37,3 +37,16 @@
   - GET /news/by_tag?tag=... — выборка статей по тегу.
 - Проверено через /docs: анализ выполняется, теги и тональность видны.
 
+## Шаг 8 — Цены → Фичи → Первая модель
+- Установлены: ccxt, pandas, numpy, scikit-learn, joblib.
+- В БД добавлена таблица `prices`.
+- Созданы модули:
+  - src/prices.py — загрузка OHLCV через ccxt, сохранение в SQLite.
+  - src/features.py — сборка датасета (ценовые фичи + агрегаты новостей).
+  - src/modeling.py — обучение LogisticRegression и мини-бэктест.
+- В API добавлены маршруты:
+  - POST /prices/fetch, GET /prices/latest
+  - POST /dataset/build
+  - POST /model/train
+- Проверка: датасет собран, модель обучена, метрики сохранены в artifacts/.
+

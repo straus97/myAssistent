@@ -2,9 +2,15 @@ from fastapi import FastAPI, Depends, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from src.db import SessionLocal, Message, Article, ArticleAnnotation
+from src.db import SessionLocal, Message, Article, ArticleAnnotation, Price
 from src.news import fetch_and_store
 from src.analysis import analyze_new_articles
+from src.prices import fetch_and_store_prices
+
+from src.features import build_dataset
+from pathlib import Path
+from src.modeling import train_and_save
+
 
 app = FastAPI(title="My Assistant API", version="0.4")
 
@@ -146,3 +152,81 @@ def news_by_tag(tag: str = Query(..., min_length=2), limit: int = 30, db: Sessio
         }
         for art, ann in rows
     ]
+
+@app.post("/prices/fetch")
+def prices_fetch(
+    exchange: str = "binance",
+    symbol: str = "BTC/USDT",
+    timeframe: str = "1h",
+    limit: int = 500,
+    db: Session = Depends(get_db)
+):
+    try:
+        added = fetch_and_store_prices(db, exchange, symbol, timeframe, limit)
+        return {"status": "ok", "added": added}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+@app.get("/prices/latest")
+def prices_latest(
+    exchange: str = "binance",
+    symbol: str = "BTC/USDT",
+    timeframe: str = "1h",
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    rows = (
+        db.query(Price)
+        .filter(Price.exchange==exchange, Price.symbol==symbol, Price.timeframe==timeframe)
+        .order_by(Price.ts.desc())
+        .limit(limit)
+        .all()
+    )
+    rows = list(reversed(rows))
+    return [
+        {"ts": r.ts, "open": r.open, "high": r.high, "low": r.low, "close": r.close, "volume": r.volume}
+        for r in rows
+    ]
+
+@app.post("/dataset/build")
+def dataset_build(
+    exchange: str = "binance",
+    symbol: str = "BTC/USDT",
+    timeframe: str = "1h",
+    horizon_steps: int = 6,
+    db: Session = Depends(get_db)
+):
+    try:
+        df, feature_cols = build_dataset(db, exchange, symbol, timeframe, horizon_steps)
+        info = {
+            "rows": int(len(df)),
+            "start": df.index[0].isoformat(),
+            "end": df.index[-1].isoformat(),
+            "n_features": len(feature_cols),
+            "features": feature_cols[:10] + (["..."] if len(feature_cols) > 10 else [])
+        }
+        # по желанию: сохранить в CSV для дебага
+        Path("artifacts").mkdir(exist_ok=True)
+        csv_path = Path("artifacts") / "dataset_preview.csv"
+        df.head(200).to_csv(csv_path, encoding="utf-8")
+        info["preview_csv"] = str(csv_path.resolve())
+        return {"status": "ok", "info": info}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+@app.post("/model/train")
+def model_train(
+    exchange: str = "binance",
+    symbol: str = "BTC/USDT",
+    timeframe: str = "1h",
+    horizon_steps: int = 6,
+    db: Session = Depends(get_db)
+):
+    try:
+        df, feature_cols = build_dataset(db, exchange, symbol, timeframe, horizon_steps)
+        if len(df) < 200:
+            return {"status": "error", "detail": "Данных слишком мало (<200 строк) для тренировки. Загрузите больше свечей."}
+        metrics = train_and_save(df, feature_cols, target_col="y", artifacts_dir="artifacts")
+        return {"status": "ok", "metrics": metrics}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}

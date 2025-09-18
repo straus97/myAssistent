@@ -41,5 +41,23 @@ class ArticleAnnotation(Base):
     tags = Column(Text, nullable=True)            # строки через запятую, например "btc,etf,regulation"
     created_at = Column(DateTime, default=datetime.now)
 
+class Price(Base):
+    __tablename__ = "prices"
+    id = Column(Integer, primary_key=True, index=True)
+    exchange = Column(String, nullable=False)     # напр. 'binance'
+    symbol = Column(String, nullable=False)       # напр. 'BTC/USDT'
+    timeframe = Column(String, nullable=False)    # напр. '1h'
+    ts = Column(Integer, nullable=False, index=True)  # миллисекунды Unix Time
+    open = Column(Float, nullable=False)
+    high = Column(Float, nullable=False)
+    low = Column(Float, nullable=False)
+    close = Column(Float, nullable=False)
+    volume = Column(Float, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('exchange','symbol','timeframe','ts', name='uq_price_row'),
+    )
+
+
 # Создаём таблицы, если их ещё нет
 Base.metadata.create_all(bind=engine)
