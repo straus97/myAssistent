@@ -1,18 +1,26 @@
 from fastapi import FastAPI, Depends, Query
 from sqlalchemy.orm import Session
-from datetime import datetime
 
+from datetime import datetime
+from pathlib import Path
+
+# НОВОЕ: планировщик
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+
+# Импорты модулей проекта
 from src.db import SessionLocal, Message, Article, ArticleAnnotation, Price
 from src.news import fetch_and_store
 from src.analysis import analyze_new_articles
 from src.prices import fetch_and_store_prices
-
 from src.features import build_dataset
-from pathlib import Path
 from src.modeling import train_and_save
 
+from fastapi.responses import HTMLResponse
+from src.reports import build_daily_report
 
-app = FastAPI(title="My Assistant API", version="0.4")
+app = FastAPI(title="My Assistant API", version="0.5")
 
 def get_db():
     db = SessionLocal()
@@ -230,3 +238,122 @@ def model_train(
         return {"status": "ok", "metrics": metrics}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
+@app.post("/report/daily")
+def report_daily(db: Session = Depends(get_db)):
+    # какие пары включать в отчёт (можно изменить под себя)
+    pairs = [("binance", "BTC/USDT", "1h"), ("binance", "ETH/USDT", "15m")]
+    path = build_daily_report(db, pairs)
+    return {"status": "ok", "path": str(path.resolve())}
+
+@app.get("/report/latest", response_class=HTMLResponse)
+def report_latest():
+    p = Path("artifacts") / "reports" / "latest.html"
+    if not p.exists():
+        return HTMLResponse("<h3>Отчёт ещё не сформирован</h3>", status_code=404)
+    return HTMLResponse(p.read_text(encoding="utf-8"))
+
+
+# --------------------------
+# НОВОЕ: АВТОМАТИЗАЦИЯ (планировщик задач)
+# --------------------------
+
+scheduler = BackgroundScheduler(timezone="UTC")
+
+# Конфигурация того, что и когда обновлять
+PAIRS = [
+    # (exchange, symbol, timeframe, limit)
+    ("binance", "BTC/USDT", "1h", 500),
+    ("binance", "ETH/USDT", "15m", 1000),
+]
+
+def job_build_report():
+    from pathlib import Path
+    with SessionLocal() as db:
+        try:
+            pairs = [("binance", "BTC/USDT", "1h"), ("binance", "ETH/USDT", "15m")]
+            path = build_daily_report(db, pairs)
+            print(f"[scheduler] report built: {path}")
+        except Exception as e:
+            print(f"[scheduler] report error: {e}")
+
+def job_fetch_news():
+    with SessionLocal() as db:
+        try:
+            added = fetch_and_store(db)
+            print(f"[scheduler] news fetched: +{added}")
+        except Exception as e:
+            print(f"[scheduler] news fetch error: {e}")
+
+def job_analyze_news():
+    with SessionLocal() as db:
+        try:
+            processed = analyze_new_articles(db, limit=200)
+            print(f"[scheduler] news analyzed: {processed}")
+        except Exception as e:
+            print(f"[scheduler] news analyze error: {e}")
+
+def job_fetch_prices():
+    with SessionLocal() as db:
+        for ex, sym, tf, lim in PAIRS:
+            try:
+                added = fetch_and_store_prices(db, ex, sym, tf, lim)
+                print(f"[scheduler] prices {ex} {sym} {tf}: +{added}")
+            except Exception as e:
+                print(f"[scheduler] prices error {ex} {sym} {tf}: {e}")
+
+def job_train_models():
+    with SessionLocal() as db:
+        for ex, sym, tf, _ in PAIRS:
+            try:
+                # horizon_steps можно варьировать: для 1h=6 (~6ч), для 15m=12 (~3ч)
+                horizon = 6 if tf == "1h" else 12
+                df, feature_cols = build_dataset(db, ex, sym, tf, horizon)
+                if len(df) < 200:
+                    print(f"[scheduler] skip train {sym} {tf}: not enough data ({len(df)})")
+                    continue
+                metrics = train_and_save(df, feature_cols, target_col="y", artifacts_dir="artifacts")
+                print(f"[scheduler] trained {sym} {tf}: {metrics}")
+            except Exception as e:
+                print(f"[scheduler] train error {sym} {tf}: {e}")
+
+@app.on_event("startup")
+def on_startup():
+    # Новости: каждые 30 минут
+    scheduler.add_job(job_fetch_news, IntervalTrigger(minutes=30), id="news_fetch", replace_existing=True)
+    # Аналитика новостей: каждые 30 минут, со сдвигом (через 5 минут после фетча)
+    scheduler.add_job(job_analyze_news, IntervalTrigger(minutes=30), id="news_analyze", replace_existing=True,
+                      next_run_time=None)
+    # Цены: каждые 15 минут
+    scheduler.add_job(job_fetch_prices, IntervalTrigger(minutes=15), id="prices_fetch", replace_existing=True)
+    # Ночная тренировка: каждый день в 02:00 UTC
+    scheduler.add_job(job_train_models, CronTrigger(hour=0, minute=35), id="train_models", replace_existing=True)
+    # ежедневный отчёт после тренировки
+    scheduler.add_job(job_build_report, CronTrigger(hour=0, minute=50), id="build_report", replace_existing=True)
+
+    try:
+        scheduler.start()
+        print("[scheduler] started")
+    except Exception as e:
+        print(f"[scheduler] start error: {e}")
+
+@app.on_event("shutdown")
+def on_shutdown():
+    try:
+        scheduler.shutdown()
+        print("[scheduler] shutdown")
+    except Exception:
+        pass
+
+# Вспомогательный статус-эндпоинт
+@app.get("/automation/status")
+def automation_status():
+    jobs = scheduler.get_jobs()
+    return [
+        {
+            "id": j.id,
+            "next_run_time": j.next_run_time.isoformat() if j.next_run_time else None,
+            "trigger": str(j.trigger)
+        }
+        for j in jobs
+    ]
