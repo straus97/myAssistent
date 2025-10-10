@@ -215,51 +215,373 @@ def trade_paper_export_db_to_json(db: Session = Depends(get_db), _=Depends(requi
 # ===== Manual Trading Commands =====
 
 
+def _last_close(db: Session, exchange: str, symbol: str, timeframe: str) -> Optional[float]:
+    """Получить последнюю цену закрытия"""
+    from src.db import Price
+    r = (
+        db.query(Price)
+        .filter(Price.exchange == exchange, Price.symbol == symbol, Price.timeframe == timeframe)
+        .order_by(Price.ts.desc())
+        .first()
+    )
+    return float(r.close) if r else None
+
+
+def _manual_buy_db(
+    db: Session,
+    exchange: str,
+    symbol: str,
+    timeframe: str,
+    qty: float,
+    price: float,
+    ts_iso: str,
+    note: Optional[str] = None,
+):
+    """Ручная покупка (БД)"""
+    od = PaperOrder(
+        exchange=exchange,
+        symbol=symbol,
+        side="buy",
+        qty=qty,
+        price=price,
+        fee=0.0,
+        status="filled",
+        signal_event_id=None,
+        note=note or f"manual {timeframe} @ {ts_iso}",
+    )
+    db.add(od)
+    db.flush()
+    tr = PaperTrade(order_id=od.id, exchange=exchange, symbol=symbol, qty=qty, price=price, fee=0.0)
+    db.add(tr)
+
+    pos = (
+        db.query(PaperPosition).filter(PaperPosition.exchange == exchange, PaperPosition.symbol == symbol).one_or_none()
+    )
+    if pos is None:
+        pos = PaperPosition(exchange=exchange, symbol=symbol, qty=0.0, avg_price=0.0, realized_pnl=0.0)
+        db.add(pos)
+        db.flush()
+
+    old_qty = float(pos.qty or 0.0)
+    old_avg = float(pos.avg_price or 0.0)
+    new_qty = old_qty + float(qty)
+    new_avg = (old_avg * old_qty + float(price) * float(qty)) / new_qty if new_qty != 0 else 0.0
+
+    pos.qty = new_qty
+    pos.avg_price = new_avg
+    pos.updated_at = _now_utc().replace(tzinfo=None)
+
+    db.commit()
+    return {
+        "order": {"id": od.id, "qty": float(qty), "price": float(price)},
+        "trade": {"id": tr.id},
+        "position": {"qty": pos.qty, "avg_price": pos.avg_price},
+    }
+
+
+def _manual_sell_db(
+    db: Session,
+    exchange: str,
+    symbol: str,
+    timeframe: str,
+    qty: float,
+    price: float,
+    ts_iso: str,
+    note: Optional[str] = None,
+):
+    """Ручная продажа (БД)"""
+    pos = (
+        db.query(PaperPosition).filter(PaperPosition.exchange == exchange, PaperPosition.symbol == symbol).one_or_none()
+    )
+    if pos is None or float(pos.qty or 0.0) <= 0.0:
+        return {"status": "error", "detail": "нет открытой позиции для sell"}
+    old_qty = float(pos.qty or 0.0)
+    old_avg = float(pos.avg_price or 0.0)
+    if qty > old_qty + 1e-12:
+        return {"status": "error", "detail": f"qty={qty} больше чем в позиции ({old_qty})"}
+
+    od = PaperOrder(
+        exchange=exchange,
+        symbol=symbol,
+        side="sell",
+        qty=qty,
+        price=price,
+        fee=0.0,
+        status="filled",
+        signal_event_id=None,
+        note=note or f"manual {timeframe} @ {ts_iso}",
+    )
+    db.add(od)
+    db.flush()
+    tr = PaperTrade(order_id=od.id, exchange=exchange, symbol=symbol, qty=-float(qty), price=price, fee=0.0)
+    db.add(tr)
+
+    qty_to_close = float(qty)
+    realized = (float(price) - old_avg) * qty_to_close
+    pos.qty = old_qty - qty_to_close
+    if pos.qty <= 1e-12:
+        pos.qty = 0.0
+        pos.avg_price = 0.0
+    try:
+        cur_rpnl = float(pos.realized_pnl or 0.0)
+    except Exception:
+        cur_rpnl = 0.0
+    pos.realized_pnl = cur_rpnl + realized
+    pos.updated_at = _now_utc().replace(tzinfo=None)
+
+    db.commit()
+    return {
+        "order": {"id": od.id, "qty": float(qty), "price": float(price)},
+        "trade": {"id": tr.id},
+        "position": {"qty": float(pos.qty), "avg_price": float(pos.avg_price), "realized_pnl": float(pos.realized_pnl)},
+    }
+
+
+def _manual_short_db(
+    db: Session,
+    exchange: str,
+    symbol: str,
+    timeframe: str,
+    qty: float,
+    price: float,
+    ts_iso: str,
+    note: Optional[str] = None,
+):
+    """Ручное открытие шорта (БД)"""
+    od = PaperOrder(
+        exchange=exchange,
+        symbol=symbol,
+        side="sell",
+        qty=qty,
+        price=price,
+        fee=0.0,
+        status="filled",
+        signal_event_id=None,
+        note=note or f"manual short {timeframe} @ {ts_iso}",
+    )
+    db.add(od)
+    db.flush()
+    tr = PaperTrade(order_id=od.id, exchange=exchange, symbol=symbol, qty=-float(qty), price=price, fee=0.0)
+    db.add(tr)
+
+    pos = (
+        db.query(PaperPosition).filter(PaperPosition.exchange == exchange, PaperPosition.symbol == symbol).one_or_none()
+    )
+    if pos is None:
+        pos = PaperPosition(exchange=exchange, symbol=symbol, qty=0.0, avg_price=0.0, realized_pnl=0.0)
+        db.add(pos)
+        db.flush()
+
+    old_qty = float(pos.qty or 0.0)
+    old_avg = float(pos.avg_price or 0.0)
+    add_abs = float(qty)
+
+    new_qty = old_qty - add_abs
+    base_abs = abs(old_qty)
+    new_avg = (
+        (old_avg * base_abs + float(price) * add_abs) / (base_abs + add_abs)
+        if (base_abs + add_abs) > 0
+        else float(price)
+    )
+
+    pos.qty = new_qty
+    pos.avg_price = new_avg
+    pos.updated_at = _now_utc().replace(tzinfo=None)
+
+    db.commit()
+    return {
+        "order": {"id": od.id, "qty": float(qty), "price": float(price)},
+        "trade": {"id": tr.id},
+        "position": {"qty": float(pos.qty), "avg_price": float(pos.avg_price)},
+    }
+
+
+def _manual_cover_db(
+    db: Session,
+    exchange: str,
+    symbol: str,
+    timeframe: str,
+    qty: float,
+    price: float,
+    ts_iso: str,
+    note: Optional[str] = None,
+):
+    """Ручное покрытие шорта (БД)"""
+    pos = (
+        db.query(PaperPosition).filter(PaperPosition.exchange == exchange, PaperPosition.symbol == symbol).one_or_none()
+    )
+    if pos is None or float(pos.qty or 0.0) >= 0.0:
+        return {"status": "error", "detail": "нет открытого шорта для cover"}
+
+    old_qty = float(pos.qty or 0.0)
+    old_avg = float(pos.avg_price or 0.0)
+    if qty > abs(old_qty) + 1e-12:
+        return {"status": "error", "detail": f"qty={qty} больше чем в шорте ({abs(old_qty)})"}
+
+    od = PaperOrder(
+        exchange=exchange,
+        symbol=symbol,
+        side="buy",
+        qty=qty,
+        price=price,
+        fee=0.0,
+        status="filled",
+        signal_event_id=None,
+        note=note or f"manual cover {timeframe} @ {ts_iso}",
+    )
+    db.add(od)
+    db.flush()
+    tr = PaperTrade(order_id=od.id, exchange=exchange, symbol=symbol, qty=float(qty), price=price, fee=0.0)
+    db.add(tr)
+
+    realized = (old_avg - float(price)) * float(qty)
+    pos.qty = old_qty + float(qty)
+    if pos.qty >= -1e-12 and pos.qty <= 1e-12:
+        pos.qty = 0.0
+        pos.avg_price = 0.0
+
+    try:
+        cur_rpnl = float(pos.realized_pnl or 0.0)
+    except Exception:
+        cur_rpnl = 0.0
+    pos.realized_pnl = cur_rpnl + realized
+    pos.updated_at = _now_utc().replace(tzinfo=None)
+
+    db.commit()
+    return {
+        "order": {"id": od.id, "qty": float(qty), "price": float(price)},
+        "trade": {"id": tr.id},
+        "position": {"qty": float(pos.qty), "avg_price": float(pos.avg_price), "realized_pnl": float(pos.realized_pnl)},
+    }
+
+
+# ===== Request/Response Models =====
+
+
+class ManualBuyRequest(BaseModel):
+    """Запрос на ручную покупку"""
+    exchange: str
+    symbol: str
+    timeframe: str = "15m"
+    qty: float
+    price: Optional[float] = None
+    note: Optional[str] = None
+
+
+class ManualSellRequest(BaseModel):
+    """Запрос на ручную продажу"""
+    exchange: str
+    symbol: str
+    timeframe: str = "15m"
+    qty: float
+    price: Optional[float] = None
+    note: Optional[str] = None
+
+
+class ManualShortRequest(BaseModel):
+    """Запрос на открытие шорта"""
+    exchange: str
+    symbol: str
+    timeframe: str = "15m"
+    qty: float
+    price: Optional[float] = None
+    note: Optional[str] = None
+
+
+class ManualCoverRequest(BaseModel):
+    """Запрос на покрытие шорта"""
+    exchange: str
+    symbol: str
+    timeframe: str = "15m"
+    qty: float
+    price: Optional[float] = None
+    note: Optional[str] = None
+
+
 class ManualBuyResponse(BaseModel):
     """Ответ на ручную торговую команду"""
     status: str
-    message: str
-    data: Optional[Any] = None
+    order: Optional[dict] = None
+    trade: Optional[dict] = None
+    position: Optional[dict] = None
+    cash: Optional[float] = None
+    detail: Optional[str] = None
+
+
+# ===== Manual Trading Endpoints =====
 
 
 @router.post("/manual/buy", response_model=ManualBuyResponse)
-def trade_manual_buy(cmd: str, db: Session = Depends(get_db), _=Depends(require_api_key)):
-    """Ручная покупка через команду вида '/buy BTC/USDT 0.1'"""
+def trade_manual_buy(req: ManualBuyRequest, db: Session = Depends(get_db), _=Depends(require_api_key)):
+    """Ручная покупка"""
     _trade_guard_enforce("open")
-    # TODO: реализация ручной покупки через cmd_parser
-    from src.cmd_parser import _parse_trade_cmd
-    parsed = _parse_trade_cmd(cmd)
-    return ManualBuyResponse(status="ok", message=f"Buy order created (stub): {parsed}")
+    ts = _now_utc().replace(microsecond=0).isoformat()
+    px = float(req.price or (_last_close(db, req.exchange, req.symbol, req.timeframe) or 0.0))
+    if px <= 0:
+        return ManualBuyResponse(status="error", detail="нет последней цены и не задан price")
+
+    # Совершаем покупку через БД
+    try:
+        res = _manual_buy_db(
+            db,
+            req.exchange,
+            req.symbol,
+            req.timeframe,
+            float(req.qty),
+            px,
+            ts,
+            note=req.note or "manual buy via API",
+        )
+        return ManualBuyResponse(status="ok", **res)
+    except Exception as e:
+        return ManualBuyResponse(status="error", detail=str(e))
 
 
 @router.post("/manual/sell", response_model=ManualBuyResponse)
-def trade_manual_sell(cmd: str, db: Session = Depends(get_db), _=Depends(require_api_key)):
-    """Ручная продажа через команду вида '/sell BTC/USDT 0.1'"""
+def trade_manual_sell(req: ManualSellRequest, db: Session = Depends(get_db), _=Depends(require_api_key)):
+    """Ручная продажа"""
     _trade_guard_enforce("reduce")
-    # TODO: реализация ручной продажи
-    from src.cmd_parser import _parse_trade_cmd
-    parsed = _parse_trade_cmd(cmd)
-    return ManualBuyResponse(status="ok", message=f"Sell order created (stub): {parsed}")
+    ts = _now_utc().replace(microsecond=0).isoformat()
+    px = float(req.price or (_last_close(db, req.exchange, req.symbol, req.timeframe) or 0.0))
+    if px <= 0:
+        return ManualBuyResponse(status="error", detail="нет последней цены и не задан price")
+
+    res = _manual_sell_db(
+        db, req.exchange, req.symbol, req.timeframe, float(req.qty), px, ts, note=req.note or "manual sell via API"
+    )
+    if res.get("status") == "error":
+        return ManualBuyResponse(status="error", detail=res.get("detail"))
+    return ManualBuyResponse(status="ok", **res)
 
 
 @router.post("/manual/short", response_model=ManualBuyResponse)
-def trade_manual_short(cmd: str, db: Session = Depends(get_db), _=Depends(require_api_key)):
+def trade_manual_short(req: ManualShortRequest, db: Session = Depends(get_db), _=Depends(require_api_key)):
     """Открытие шорта"""
     _trade_guard_enforce("open")
-    # TODO: реализация шорта
-    return ManualBuyResponse(status="ok", message="Short order created (stub)")
+    ts = _now_utc().replace(microsecond=0).isoformat()
+    px = float(req.price or (_last_close(db, req.exchange, req.symbol, req.timeframe) or 0.0))
+    if px <= 0:
+        return ManualBuyResponse(status="error", detail="нет последней цены и не задан price")
+
+    res = _manual_short_db(
+        db, req.exchange, req.symbol, req.timeframe, float(req.qty), px, ts, note=req.note or "manual short via API"
+    )
+    return ManualBuyResponse(status="ok", **res)
 
 
 @router.post("/manual/cover", response_model=ManualBuyResponse)
-def trade_manual_cover(cmd: str, db: Session = Depends(get_db), _=Depends(require_api_key)):
+def trade_manual_cover(req: ManualCoverRequest, db: Session = Depends(get_db), _=Depends(require_api_key)):
     """Закрытие шорта"""
-    _trade_guard_enforce("reduce")
-    # TODO: реализация закрытия шорта
-    return ManualBuyResponse(status="ok", message="Cover order created (stub)")
+    _trade_guard_enforce("close")
+    ts = _now_utc().replace(microsecond=0).isoformat()
+    px = float(req.price or (_last_close(db, req.exchange, req.symbol, req.timeframe) or 0.0))
+    if px <= 0:
+        return ManualBuyResponse(status="error", detail="нет последней цены и не задан price")
 
-
-# NOTE: Этот роутер содержит упрощённые версии всех trade эндпоинтов.
-# Для полной реализации нужно перенести весь код из main.py (строки 172-3500).
-# Основные части уже реализованы (trade guard, positions, equity, close).
-# Остальные эндпоинты требуют доработки при следующей итерации декомпозиции.
+    res = _manual_cover_db(
+        db, req.exchange, req.symbol, req.timeframe, float(req.qty), px, ts, note=req.note or "manual cover via API"
+    )
+    if res.get("status") == "error":
+        return ManualBuyResponse(status="error", detail=res.get("detail"))
+    return ManualBuyResponse(status="ok", **res)
 
