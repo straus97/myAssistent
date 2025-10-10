@@ -149,11 +149,14 @@ def run_vectorized_backtest(
     if model_path is None:
         # Ищем последнюю модель
         artifacts_dir = Path("artifacts/models")
-        models = list(artifacts_dir.glob("model_*.pkl"))
+        if not artifacts_dir.exists():
+            artifacts_dir.mkdir(parents=True, exist_ok=True)
+        
+        models = list(artifacts_dir.glob("model_*.pkl")) + list(artifacts_dir.glob("*.pkl"))
         if not models:
             return {
                 "success": False,
-                "error": "No model found in artifacts/models/",
+                "error": "No model found in artifacts/models/. Please train a model first using POST /model/train",
                 "equity_curve": None,
                 "metrics": None,
                 "trades": None,
