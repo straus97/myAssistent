@@ -9,14 +9,18 @@
 
 ## [Unreleased]
 
-### Добавлено (2025-10-10, вечер)
-- **Comprehensive тесты (120+ тестов, версия 0.8):**
+---
+
+## [0.8.0] — 2025-10-10
+
+### Добавлено
+- **Comprehensive тесты (127 тестов, 100% passed):**
   - `tests/test_modeling.py` — 20 тестов для ML-пайплайна (XGBoost, threshold grid, walk-forward CV)
   - `tests/test_features.py` — 30+ тестов для фичей (RSI, Bollinger Bands, новостные агрегаты, датасет)
   - `tests/test_trade.py` — 40+ тестов для paper trading (sizing, PnL, позиции, ордера)
   - `tests/test_risk.py` — 35+ тестов для риск-менеджмента (фильтры, EMA, волатильность, policy)
   - **Coverage:** modeling.py 96%, risk.py 96%, trade.py 87%, features.py 63%
-  - **Результаты:** 107/127 тестов passed (84% success rate)
+  - **Результаты:** 127/127 тестов passed (100% success rate)
 
 - **Документация API (`docs/API.md`):**
   - Comprehensive описание 80+ эндпоинтов
@@ -31,6 +35,23 @@
   - Security Scan (bandit)
   - Dependency Audit (pip-audit)
   - Автоматические артефакты и summary reports
+
+### Исправлено
+- **Все провалы в тестах (commit 632759f):**
+  - Изолирован shared state в test_trade.py (улучшена fixture clean_state)
+  - Исправлены моки БД в test_features.py (обработка multiple args в query)
+  - Исправлен тест RSI с реалистичными данными
+  - Исправлены assertions с float precision (допуск 1e-6)
+  - Разделён виртуальный/реальный режим в _calc_auto_qty тестах
+
+### Изменено
+- **Push в GitHub (commits c56e7c2, 632759f):**
+  - Версия 0.8 полностью завершена и отправлена в репозиторий
+  - GitHub warning: assistant.db (51.94 MB) > рекомендуемого лимита (50 MB)
+
+---
+
+## [0.7.2] — 2025-10-10
 
 - **Декомпозиция main.py на роутеры** (Часть 1/2, commit ce66572):
   - `src/dependencies.py` — общие зависимости (get_db, require_api_key, ok, err)
