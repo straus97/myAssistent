@@ -51,9 +51,18 @@ def temp_state_file():
 @pytest.fixture
 def clean_state(temp_state_file):
     """Обеспечивает чистое состояние для каждого теста."""
+    # Очищаем файл перед тестом
     if temp_state_file.exists():
         temp_state_file.unlink()
-    return temp_state_file
+    
+    # Инициализируем дефолтное состояние
+    temp_state_file.write_text(json.dumps(DEFAULT_STATE, ensure_ascii=False, indent=2), encoding="utf-8")
+    
+    yield temp_state_file
+    
+    # Очищаем после теста
+    if temp_state_file.exists():
+        temp_state_file.unlink()
 
 
 @pytest.fixture
@@ -126,7 +135,11 @@ def test_save_state_atomic_write(clean_state):
 
 def test_calc_auto_qty_normal_vol(sample_policy):
     """Проверяет расчёт qty для нормальной волатильности."""
-    qty, usd = _calc_auto_qty("binance", "BTC/USDT", "1h", 50000.0, "normal", sample_policy)
+    # Убираем sizing чтобы использовать виртуальный режим
+    policy_virtual = sample_policy.copy()
+    policy_virtual.pop("sizing", None)
+    
+    qty, usd = _calc_auto_qty("binance", "BTC/USDT", "1h", 50000.0, "normal", policy_virtual)
 
     # Виртуальный режим: 1000 * 0.10 = 100 USDT
     assert usd == 100.0
@@ -135,7 +148,10 @@ def test_calc_auto_qty_normal_vol(sample_policy):
 
 def test_calc_auto_qty_hot_vol(sample_policy):
     """Проверяет расчёт qty для горячей волатильности."""
-    qty, usd = _calc_auto_qty("binance", "BTC/USDT", "1h", 50000.0, "hot", sample_policy)
+    policy_virtual = sample_policy.copy()
+    policy_virtual.pop("sizing", None)
+    
+    qty, usd = _calc_auto_qty("binance", "BTC/USDT", "1h", 50000.0, "hot", policy_virtual)
 
     # hot: 1000 * 0.07 = 70 USDT
     assert usd == 70.0
@@ -143,7 +159,10 @@ def test_calc_auto_qty_hot_vol(sample_policy):
 
 def test_calc_auto_qty_dead_vol(sample_policy):
     """Проверяет расчёт qty для мёртвой волатильности."""
-    qty, usd = _calc_auto_qty("binance", "BTC/USDT", "1h", 50000.0, "dead", sample_policy)
+    policy_virtual = sample_policy.copy()
+    policy_virtual.pop("sizing", None)
+    
+    qty, usd = _calc_auto_qty("binance", "BTC/USDT", "1h", 50000.0, "dead", policy_virtual)
 
     # dead: 1000 * 0.05 = 50 USDT
     assert usd == 50.0
@@ -160,11 +179,14 @@ def test_calc_auto_qty_min_order(sample_policy):
 
 def test_calc_auto_qty_max_order(sample_policy):
     """Проверяет соблюдение max_order_usdt."""
-    sample_policy["auto_sizing"]["equity_virtual"] = 2000.0  # очень много
-    qty, usd = _calc_auto_qty("binance", "BTC/USDT", "1h", 50000.0, "normal", sample_policy)
+    policy_virtual = sample_policy.copy()
+    policy_virtual.pop("sizing", None)
+    policy_virtual["auto_sizing"]["equity_virtual"] = 2000.0  # очень много
+    
+    qty, usd = _calc_auto_qty("binance", "BTC/USDT", "1h", 50000.0, "normal", policy_virtual)
 
     # 2000 * 0.10 = 200, но max = 100
-    assert usd <= sample_policy["auto_sizing"]["max_order_usdt"]
+    assert usd <= policy_virtual["auto_sizing"]["max_order_usdt"]
 
 
 def test_calc_auto_qty_qty_precision(sample_policy):
@@ -365,7 +387,7 @@ def test_paper_open_buy_manual_add_to_existing(clean_state):
 
     # avg_price = (0.1 * 50000 + 0.05 * 52000) / 0.15
     expected_avg = (0.1 * 50000.0 + 0.05 * 52000.0) / 0.15
-    assert result["position"]["qty"] == 0.15
+    assert abs(result["position"]["qty"] - 0.15) < 1e-6  # допускаем погрешность
     assert abs(result["position"]["avg_price"] - expected_avg) < 1e-6
 
 
@@ -424,6 +446,7 @@ def test_paper_open_sell_manual_no_position(clean_state):
     """Проверяет ошибку при попытке продажи без позиции."""
     result = paper_open_sell_manual("binance", "BTC/USDT", "1h", qty=0.1, price=50000.0, ts_iso="2023-01-01T00:00:00Z")
 
+    assert "status" in result
     assert result["status"] == "error"
     assert "no open position" in result["detail"]
 
@@ -529,6 +552,7 @@ def test_paper_close_pair_no_position(clean_state):
     """Проверяет ошибку при закрытии несуществующей пары."""
     result = paper_close_pair("binance", "BTC/USDT", "1h", price=50000.0, ts_iso="2023-01-01T00:00:00Z")
 
+    assert "status" in result
     assert result["status"] == "error"
 
 
@@ -552,15 +576,15 @@ def test_full_trading_cycle(clean_state):
     """Интеграционный тест: buy → partial sell → full close."""
     # 1. Покупка
     buy1 = paper_open_buy_manual("binance", "BTC/USDT", "1h", qty=0.1, price=50000.0, ts_iso="2023-01-01T00:00:00Z")
-    assert buy1["cash"] == DEFAULT_STATE["cash"] - 5000.0
+    assert abs(buy1["cash"] - (DEFAULT_STATE["cash"] - 5000.0)) < 1e-6
 
     # 2. Докупка
     buy2 = paper_open_buy_manual("binance", "BTC/USDT", "1h", qty=0.05, price=52000.0, ts_iso="2023-01-01T01:00:00Z")
-    assert buy2["position"]["qty"] == 0.15
+    assert abs(buy2["position"]["qty"] - 0.15) < 1e-6  # допускаем погрешность
 
     # 3. Частичная продажа
     sell1 = paper_open_sell_manual("binance", "BTC/USDT", "1h", qty=0.05, price=53000.0, ts_iso="2023-01-01T02:00:00Z")
-    assert sell1["position"]["qty"] == 0.10
+    assert abs(sell1["position"]["qty"] - 0.10) < 1e-6
 
     # 4. Полное закрытие
     sell2 = paper_close_pair("binance", "BTC/USDT", "1h", price=54000.0, ts_iso="2023-01-01T03:00:00Z")
@@ -581,8 +605,8 @@ def test_pnl_calculation_accuracy(clean_state):
     # Продаём по 55000
     result = paper_open_sell_manual("binance", "BTC/USDT", "1h", qty=0.1, price=55000.0, ts_iso="2023-01-01T01:00:00Z")
 
-    # PnL = (55000 - 50000) * 0.1 = 500
-    assert result["pnl"] == 500.0
+    # PnL = (55000 - 50000) * 0.1 = 500 (допускаем погрешность округления)
+    assert abs(result["pnl"] - 500.0) < 0.01
 
 
 def test_orders_history(clean_state):
