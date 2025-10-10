@@ -67,10 +67,21 @@ def news_search(q: str = Query(..., min_length=2), limit: int = 30, db: Session 
 
 
 @router.post("/analyze")
-def news_analyze(limit: int = 100, db: Session = Depends(get_db), _=Depends(require_api_key)):
-    """Анализ новостей (sentiment + tags)"""
-    processed = analyze_new_articles(db, limit=limit)
-    return {"status": "ok", "processed": processed}
+def news_analyze(
+    limit: int = 100,
+    use_finbert: bool = False,
+    db: Session = Depends(get_db),
+    _=Depends(require_api_key)
+):
+    """
+    Анализ новостей (sentiment + tags)
+    
+    Args:
+        limit: Максимальное количество статей для обработки
+        use_finbert: Использовать FinBERT (медленнее, но точнее) вместо лексиконов
+    """
+    processed = analyze_new_articles(db, limit=limit, use_finbert=use_finbert)
+    return {"status": "ok", "processed": processed, "method": "finbert" if use_finbert else "lexicon"}
 
 
 @router.get("/annotated")
