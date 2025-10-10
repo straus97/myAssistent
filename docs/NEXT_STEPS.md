@@ -68,13 +68,204 @@
 
 **Осталось (опционально):**
 - ⏳ Тестирование миграции на PostgreSQL (ручная проверка)
-- ⏳ MLflow Tracking integration
-- ⏳ Next.js + TypeScript UI
-- ⏳ Prometheus + Grafana мониторинг
+- ⏳ MLflow Tracking integration (Docker работает, нужна интеграция в src/modeling.py)
+- ⏳ Next.js + TypeScript UI (структура готова, нужна разработка компонентов)
+- ⏳ Prometheus + Grafana мониторинг (Docker работает, метрики экспортируются)
+
+**Завершено (2025-10-10 — вечер):**
+- ✅ Исправлена инфраструктура запуска:
+  - ✅ Добавлен ENABLE_METRICS=true в start_server.bat
+  - ✅ Создан start_all.bat для запуска полного стека
+  - ✅ Создан frontend/.env.example для настройки Next.js
+  - ✅ Обновлена docs/QUICK_START.md с подробными инструкциями
+  - ✅ Обновлена docs/ROADMAP.md с новыми задачами (FinBERT, расширенные фичи, бэктестинг, RL)
+- ✅ Теперь работают:
+  - ✅ http://localhost:8000/metrics (Prometheus metrics)
+  - ✅ http://localhost:5000 (MLflow UI через Docker)
+  - ✅ http://localhost:9090 (Prometheus через Docker)
+  - ✅ http://localhost:3001 (Grafana через Docker)
+  - ✅ http://localhost:3000 (Next.js Frontend — при запуске через start_all.bat)
 
 ---
 
-## 🎯 Задача #1: Декомпозиция main.py (Приоритет: КРИТИЧНО)
+---
+
+## 🎯 Новые Задачи для Следующего Чата
+
+### Задача #1: FinBERT Sentiment-анализ (Приоритет: ВЫСОКИЙ)
+
+**Цель:** Заменить/дополнить лексиконный sentiment-анализ моделью FinBERT.
+
+#### Контекст
+- **Текущий подход:** Лексиконы (RU/EN словари)
+- **Проблема:** Низкая точность, не учитывает контекст
+- **Решение:** Hugging Face Transformers + FinBERT
+
+#### План Действий
+
+1. **Установка зависимостей:**
+```bash
+pip install transformers>=4.30 torch>=2.0
+```
+
+2. **Интеграция в src/analysis.py:**
+- Добавить функцию `sentiment_finbert(text: str) -> dict`
+- Модели: `ProsusAI/finbert` или `yiyanghkust/finbert-tone`
+- Вернуть: `{"label": "positive/negative/neutral", "score": 0.95}`
+
+3. **Обновление БД:**
+- Добавить колонки в `ArticleAnnotation`:
+  - `sentiment_finbert` (float -1..1)
+  - `sentiment_finbert_label` (str)
+  - `sentiment_method` (str: "lexicon"/"finbert"/"ensemble")
+
+4. **Сравнительное тестирование:**
+- Запустить на последних 100 новостях
+- Сравнить с лексиконным подходом
+- Выбрать лучший или ensemble
+
+5. **Оптимизация:**
+- Batch inference (группы по 8-16)
+- Кеширование результатов (избегать повторного анализа)
+- CPU fallback (если нет GPU)
+
+**Коммит:**
+```bash
+git add src/analysis.py src/db.py requirements.txt
+git commit -m "feat: add FinBERT sentiment analysis
+
+- Integrated ProsusAI/finbert model via Transformers
+- Added sentiment_finbert() function with batch inference
+- Updated ArticleAnnotation with finbert_* columns
+- Comparative testing: FinBERT vs lexicon approach
+- CPU/GPU support with automatic fallback"
+```
+
+---
+
+### Задача #2: Расширенные Фичи (40+ → 100+) (Приоритет: ВЫСОКИЙ)
+
+**Цель:** Добавить on-chain, макро и social фичи для улучшения моделей.
+
+#### План
+
+1. **On-chain метрики (Glassnode API):**
+- Регистрация: https://glassnode.com/
+- API key → .env
+- Эндпоинты:
+  - Exchange net flows
+  - Active addresses
+  - SOPR, MVRV
+- Создать `src/onchain.py`
+
+2. **Макроэкономика:**
+- Federal Reserve Economic Data (FRED) API
+- DXY, CPI, Treasury yields
+- Создать `src/macro.py`
+
+3. **Social signals:**
+- Twitter API v2 (mentions, sentiment)
+- Reddit API (r/cryptocurrency)
+- Fear & Greed Index
+- Создать `src/social.py`
+
+4. **Технические индикаторы:**
+- MACD, ADX, ATR (через pandas-ta)
+- Обновить `src/features.py`
+
+**Коммит:**
+```bash
+git commit -m "feat: add 60+ new features (on-chain, macro, social)
+
+- Glassnode API integration (exchange flows, SOPR, MVRV)
+- FRED API for macro data (CPI, DXY, yields)
+- Twitter/Reddit sentiment aggregation
+- Extended technical indicators (MACD, ADX, ATR)
+- Total features: 40 → 103"
+```
+
+---
+
+### Задача #3: Векторизованный Бэктестинг (Приоритет: СРЕДНИЙ)
+
+**Цель:** Реалистичная симуляция стратегии на исторических данных.
+
+#### План
+
+1. **Создать src/backtest.py:**
+```python
+def run_backtest(
+    signals_df: pd.DataFrame,
+    prices_df: pd.DataFrame,
+    initial_capital: float = 1000,
+    commission_bps: float = 8.0,
+    slippage_bps: float = 5.0
+) -> dict:
+    # Векторизованная симуляция
+    ...
+```
+
+2. **Метрики:**
+- Sharpe, Sortino, Calmar
+- Max Drawdown (величина, duration)
+- Win rate, avg win/loss
+- Total trades, exposure time
+
+3. **Интеграция с моделями:**
+- POST /backtest/run (exchange, symbol, TF, model_path)
+- Сравнение с buy-and-hold
+
+**Коммит:**
+```bash
+git commit -m "feat: add vectorized backtesting engine
+
+- Vectorized simulation via pandas (fast)
+- Realistic fees/slippage modeling
+- Risk metrics: Sharpe, Sortino, Calmar, Max DD
+- Benchmark comparison (buy-and-hold)
+- New endpoint: POST /backtest/run"
+```
+
+---
+
+### Задача #4: RL-агент (PPO) (Приоритет: СРЕДНИЙ)
+
+**Цель:** Reinforcement Learning для динамического sizing.
+
+#### План
+
+1. **Установка:**
+```bash
+pip install stable-baselines3>=2.0 gymnasium>=0.28
+```
+
+2. **Создать src/rl_env.py:**
+- Custom Gym environment
+- State: equity, positions, features
+- Actions: buy/sell/hold + sizing
+- Reward: Sharpe ratio
+
+3. **Обучение:**
+- PPO с гиперпараметрами по умолчанию
+- Walk-forward training (30-дневные окна)
+
+4. **Интеграция:**
+- Hybrid: XGBoost (направление) + RL (sizing)
+
+**Коммит:**
+```bash
+git commit -m "feat: add RL agent for dynamic position sizing
+
+- Stable-Baselines3 PPO agent
+- Custom Gym environment with crypto trading simulation
+- Hybrid model: XGBoost (direction) + RL (sizing)
+- Training: walk-forward on historical data
+- New endpoint: POST /rl/train, POST /rl/predict"
+```
+
+---
+
+## 🎯 Задача #1 (ЗАВЕРШЕНО): Декомпозиция main.py (Приоритет: КРИТИЧНО)
 
 **Цель:** Разбить main.py (4000+ строк, 83 эндпоинта) на модульные роутеры.
 

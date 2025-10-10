@@ -1,14 +1,20 @@
 # 🚀 Quick Start — Запуск MyAssistent v0.9
 
-> **Полный стек:** PostgreSQL + MLflow + Next.js + Prometheus + Grafana
+> **Два режима запуска:**
+> 1. **Быстрый старт** (start_server.bat) — только Backend + Streamlit
+> 2. **Полный стек** (start_all.bat) — Docker + Backend + Streamlit + Frontend
 
 ---
 
 ## 📋 Предварительные требования
 
+### Минимальные (для быстрого старта)
+- **Python 3.11+**
+
+### Полные (для полного стека)
 - **Python 3.11+**
 - **Node.js 18+** (для Next.js UI)
-- **Docker Desktop** (для PostgreSQL, MLflow, Grafana)
+- **Docker Desktop** (для PostgreSQL, MLflow, Prometheus, Grafana)
 - **Git**
 
 ---
@@ -129,44 +135,110 @@ python scripts/migrate_sqlite_to_postgres.py
 
 ---
 
-## 🚀 Шаг 5: Запуск Backend
+## 🚀 Шаг 5: Запуск Приложения
 
-### Вариант A: Через start_server.bat (Windows)
+### 🎯 Вариант A: Быстрый старт (рекомендуется для начала)
+
+**Запускает:** Backend API + Streamlit UI (без Docker)
 
 ```bash
 start_server.bat
 ```
 
-Автоматически:
-- Активирует .venv
-- Установит зависимости (если нужно)
-- Запустит FastAPI на :8000
-- Запустит Streamlit на :8501
+**Автоматически:**
+- ✅ Создаёт venv и устанавливает зависимости
+- ✅ Запускает FastAPI на :8000
+- ✅ Запускает Streamlit на :8501
+- ✅ Открывает браузер
 
-### Вариант B: Вручную
-
-```bash
-.venv\Scripts\activate
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-**Проверка:**
+**Доступные сервисы:**
+- Backend API: http://127.0.0.1:8000
 - Swagger UI: http://127.0.0.1:8000/docs
-- Health check: http://127.0.0.1:8000/ping
+- Metrics: http://127.0.0.1:8000/metrics ✨
+- Streamlit UI: http://localhost:8501
+
+**Что НЕ работает без Docker:**
+- ❌ MLflow UI (http://localhost:5000)
+- ❌ Prometheus (http://localhost:9090)
+- ❌ Grafana (http://localhost:3001)
+- ❌ Frontend Dashboard (http://localhost:3000)
 
 ---
 
-## 🎨 Шаг 6: Запуск Frontend (Next.js)
+### 🚀 Вариант B: Полный стек (все функции)
+
+**Запускает:** Docker + Backend + Streamlit + Frontend
+
+**Требования:**
+1. Docker Desktop установлен и запущен
+2. Node.js 18+ установлен
+
+```bash
+start_all.bat
+```
+
+**Автоматически:**
+- ✅ Проверяет Docker и Node.js
+- ✅ Запускает Docker Compose (PostgreSQL, MLflow, Prometheus, Grafana)
+- ✅ Запускает Backend API
+- ✅ Запускает Streamlit UI
+- ✅ Устанавливает npm зависимости
+- ✅ Запускает Next.js Frontend
+- ✅ Открывает все UI в браузере
+
+**Доступные сервисы:**
+- Backend API: http://127.0.0.1:8000
+- Swagger UI: http://127.0.0.1:8000/docs
+- Metrics: http://127.0.0.1:8000/metrics
+- Streamlit UI: http://localhost:8501
+- **Frontend Dashboard: http://localhost:3000** 🎨
+- **MLflow UI: http://localhost:5000** 📊
+- **Prometheus: http://localhost:9090** 📈
+- **Grafana: http://localhost:3001** (admin/admin) 📊
+
+---
+
+### 🛠️ Вариант C: Ручной запуск (для разработки)
+
+```bash
+# Активация venv
+.venv\Scripts\activate
+
+# Backend
+uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+
+# В другом терминале — Streamlit
+streamlit run streamlit_app.py --server.port 8501
+
+# В другом терминале — Frontend (опционально)
+cd frontend
+npm run dev
+```
+
+**Проверка Backend:**
+```bash
+curl http://localhost:8000/ping
+# Ожидается: {"status":"ok"}
+```
+
+---
+
+## 🎨 Шаг 6: Настройка Frontend (если запускали вручную)
+
+> **Примечание:** При использовании `start_all.bat` этот шаг выполняется автоматически!
 
 ```bash
 cd frontend
 
-# Создать .env.local
-cp .env.example .env.local
+# Создать .env.local из .env.example
+copy .env.example .env.local
 
-# Обновить:
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_API_KEY=your_api_key_from_backend
+# Проверить настройки в .env.local:
+# NEXT_PUBLIC_API_URL=http://localhost:8000
+# NEXT_PUBLIC_API_KEY=803a29e730b47a595e38836abf8c19d7ef325b5790993e17d25515a47a3fc8b6
+
+# Установить зависимости (первый раз)
+npm install
 
 # Запуск
 npm run dev
@@ -182,21 +254,30 @@ npm run dev
 ### 1. Backend API
 ```bash
 curl http://localhost:8000/ping
-# {"status":"ok"}
+# Ожидается: {"status":"ok"}
 ```
 
-### 2. MLflow UI
+### 2. Prometheus Metrics
+```bash
+curl http://localhost:8000/metrics
+# Должны вернуться метрики в формате Prometheus
+```
+
+### 3. MLflow UI (если запущен через start_all.bat)
 http://localhost:5000
 
-### 3. Prometheus
+### 4. Prometheus (если запущен через start_all.bat)
 http://localhost:9090
+- Проверьте: Status → Targets
+- `myassistent-api` должен быть UP (зеленый)
 
-### 4. Grafana
+### 5. Grafana (если запущен через start_all.bat)
 http://localhost:3001
 - Username: `admin`
-- Password: (из `.env` GRAFANA_PASSWORD)
+- Password: `admin` (по умолчанию)
+- Dashboards → Browse → MyAssistent Overview
 
-### 5. Next.js Dashboard
+### 6. Next.js Frontend (если запущен через start_all.bat)
 http://localhost:3000
 
 ---
@@ -301,22 +382,24 @@ GET /automation/status
 
 ## 🛑 Остановка сервисов
 
-### Backend
-```bash
-# Ctrl+C в терминале где запущен uvicorn
-```
+### Если запускали через start_server.bat или start_all.bat
+Просто закройте окна:
+- `backend` (FastAPI)
+- `streamlit-ui` (Streamlit)
+- `nextjs-frontend` (Next.js) — если был запущен
 
-### Frontend
+### Docker контейнеры
 ```bash
-# Ctrl+C в терминале где запущен npm run dev
-```
-
-### Docker
-```bash
+# Остановка контейнеров (данные сохраняются)
 docker-compose down
 
-# С удалением данных (осторожно!):
+# С удалением данных (ОСТОРОЖНО! Удалит БД и метрики)
 docker-compose down -v
+```
+
+### Проверка запущенных контейнеров
+```bash
+docker ps
 ```
 
 ---
@@ -333,35 +416,128 @@ docker-compose down -v
 
 ## 🆘 Troubleshooting
 
-### Ошибка: "API_KEY not set"
+### ❌ Ошибка: "API_KEY not set"
 
-Убедитесь, что `.env` содержит `API_KEY=...` и перезапустите сервер.
+Убедитесь, что в `start_server.bat` или `start_all.bat` установлен `API_KEY`.
 
-### Ошибка: "Connection refused" (PostgreSQL)
+**Решение:**
+- Файлы уже содержат ключ по умолчанию
+- Если используете `.env`, проверьте `API_KEY=...`
 
+---
+
+### ❌ /metrics возвращает 404 "Not Found"
+
+**Причина:** Переменная `ENABLE_METRICS` не установлена
+
+**Решение:**
 ```bash
-# Проверка запущен ли Docker
-docker ps | grep postgres
-
-# Если нет, запустите:
-docker-compose up -d postgres
+# В start_server.bat или start_all.bat проверьте:
+set ENABLE_METRICS=true
 ```
 
-### Ошибка: "MLflow tracking error"
-
-Проверьте, что MLflow запущен:
-```bash
-docker ps | grep mlflow
-# Если нет:
-docker-compose up -d mlflow
-```
-
-### Frontend не подключается к Backend
-
-Проверьте `frontend/.env.local`:
+Или в `.env`:
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_API_KEY=<тот же ключ что и в backend .env>
+ENABLE_METRICS=true
+```
+
+---
+
+### ❌ MLflow/Prometheus/Grafana не открываются
+
+**Причина:** Docker контейнеры не запущены
+
+**Решение:**
+```bash
+# Проверка Docker
+docker ps
+
+# Если контейнеры не запущены:
+docker-compose up -d postgres mlflow prometheus grafana
+
+# Проверка логов:
+docker-compose logs mlflow
+docker-compose logs prometheus
+docker-compose logs grafana
+```
+
+---
+
+### ❌ Grafana показывает "No data"
+
+**Причины:**
+1. Prometheus не получает метрики от Backend
+2. Backend не экспортирует метрики (ENABLE_METRICS=false)
+
+**Решение:**
+```bash
+# 1. Проверьте метрики Backend
+curl http://localhost:8000/metrics
+# Должны вернуться метрики
+
+# 2. Проверьте Prometheus Targets
+# Откройте: http://localhost:9090/targets
+# myassistent-api должен быть UP (зеленый)
+
+# 3. Если Target DOWN, проверьте prometheus.yml:
+# targets: ['host.docker.internal:8000']
+
+# 4. Перезапустите Prometheus:
+docker-compose restart prometheus
+```
+
+---
+
+### ❌ Frontend не подключается к Backend
+
+**Причина:** Неверные настройки в `frontend/.env.local`
+
+**Решение:**
+```bash
+cd frontend
+
+# Проверьте .env.local (должен существовать)
+type .env.local
+
+# Содержимое должно быть:
+# NEXT_PUBLIC_API_URL=http://localhost:8000
+# NEXT_PUBLIC_API_KEY=803a29e730b47a595e38836abf8c19d7ef325b5790993e17d25515a47a3fc8b6
+
+# Если файла нет, скопируйте из .env.example:
+copy .env.example .env.local
+
+# Перезапустите Frontend:
+npm run dev
+```
+
+---
+
+### ❌ Docker не запускается
+
+**Причина:** Docker Desktop не установлен или не запущен
+
+**Решение:**
+1. Скачайте Docker Desktop: https://www.docker.com/products/docker-desktop
+2. Установите и запустите
+3. Проверьте: `docker --version`
+
+---
+
+### ❌ Node.js ошибки при запуске Frontend
+
+**Решение:**
+```bash
+cd frontend
+
+# Удалите node_modules и package-lock.json
+rmdir /s node_modules
+del package-lock.json
+
+# Переустановите зависимости
+npm install
+
+# Запустите снова
+npm run dev
 ```
 
 ---

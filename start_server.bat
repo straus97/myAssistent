@@ -34,6 +34,7 @@ set DATABASE_URL=sqlite:///./assistant.db
 set TRADE_MODE=live
 set OFFLINE_DOCS=1
 set ENABLE_DOCS=1
+set ENABLE_METRICS=true
 REM опционально, чтобы /artifacts открывались без заголовка (только локально!):
 REM set PUBLIC_ARTIFACTS=1
 
