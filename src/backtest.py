@@ -170,9 +170,11 @@ def run_vectorized_backtest(
         # Модель сохраняется как dict с ключами: model, feature_cols, threshold, metrics
         if isinstance(model_obj, dict) and "model" in model_obj:
             model = model_obj["model"]
-            logger.info(f"[backtest] Loaded model from dict (threshold: {model_obj.get('threshold', 'N/A')})")
+            saved_feature_cols = model_obj.get("feature_cols", None)
+            logger.info(f"[backtest] Loaded model from dict (threshold: {model_obj.get('threshold', 'N/A')}, features: {len(saved_feature_cols) if saved_feature_cols else 'unknown'})")
         else:
             model = model_obj  # Старый формат - напрямую модель
+            saved_feature_cols = None
     except Exception as e:
         logger.error(f"[backtest] Failed to load model: {e}")
         return {
@@ -185,7 +187,27 @@ def run_vectorized_backtest(
         }
 
     # 3. Генерация сигналов
-    feature_cols = [c for c in df.columns if c not in ["timestamp", "close", "future_ret", "y"]]
+    # Используем сохранённые feature_cols из модели, если есть
+    if saved_feature_cols is not None:
+        feature_cols = saved_feature_cols
+        logger.info(f"[backtest] Using saved feature columns: {len(feature_cols)} features")
+    else:
+        # Fallback: автоопределение (может не совпадать с обучением)
+        feature_cols = [c for c in df.columns if c not in ["timestamp", "close", "future_ret", "y"]]
+        logger.warning(f"[backtest] No saved feature_cols, using auto-detected: {len(feature_cols)} features")
+    
+    # Проверяем наличие всех нужных колонок
+    missing_cols = [c for c in feature_cols if c not in df.columns]
+    if missing_cols:
+        return {
+            "success": False,
+            "error": f"Missing features in dataset: {missing_cols[:5]}... (total: {len(missing_cols)})",
+            "equity_curve": None,
+            "metrics": None,
+            "trades": None,
+            "benchmark": None,
+        }
+    
     X = df[feature_cols].fillna(0)
 
     try:
