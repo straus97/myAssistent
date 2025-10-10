@@ -149,7 +149,7 @@ def maybe_send_signal_notification(
         send_telegram(raw)
         return
 
-    # 4) «человеческий» стиль
+    # 4) «человеческий» стиль с максимальной детализацией
     side = "ПОКУПКА" if final_signal.lower() == "buy" else "БЕЗ ДЕЙСТВИЯ"
     emoji = "🟢" if final_signal.lower() == "buy" else "⚪"
     ex = (exchange or "").upper()
@@ -157,43 +157,124 @@ def maybe_send_signal_notification(
     time_s = _ts_hhmm_utc(bar_dt)
     gap_pp = delta * 100.0
 
-    # эмодзи волатильности — по тексту причины если есть
-    vol_state = None
+    # Определяем состояние волатильности из фильтров
+    vol_state = "normal"
+    vol_info = ""
     try:
-        if reasons and any("dead_volatility" in r for r in reasons):
-            vol_state = "dead"
+        if reasons:
+            for r in reasons:
+                if "dead_volatility" in r.lower():
+                    vol_state = "dead"
+                    vol_info = "🧊 Низкая волатильность (рынок спокоен)"
+                    break
+                elif "hot_volatility" in r.lower() or "hot market" in r.lower():
+                    vol_state = "hot"
+                    vol_info = "🔥 Высокая волатильность (рынок активен)"
+                    break
+        if not vol_info:
+            vol_info = "〰️ Нормальная волатильность"
     except Exception:
         pass
     vol = _vol_emoji(vol_state)
 
-    # совет по доле покупки: берём root buy_fraction либо дефолт 0.10
+    # Анализ фильтров для детального вывода
+    filter_details = []
+    risk_warnings = []
+    if reasons:
+        for r in reasons:
+            r_lower = r.lower()
+            if "pass" in r_lower or "ok" in r_lower or "allow" in r_lower:
+                continue  # Пропускаем "pass" фильтры
+            if "block" in r_lower or "reject" in r_lower or "dead" in r_lower:
+                risk_warnings.append(f"⚠️ {r}")
+            elif "volume" in r_lower:
+                filter_details.append(f"📊 {r}")
+            elif "trend" in r_lower or "ema" in r_lower:
+                filter_details.append(f"📈 {r}")
+            elif "cooldown" in r_lower:
+                filter_details.append(f"⏱ {r}")
+            else:
+                filter_details.append(f"• {r}")
+
+    # Размер позиции и советы
     buy_fraction = 0.10
     try:
         if isinstance(pol.get("buy_fraction"), (int, float)):
             buy_fraction = float(pol.get("buy_fraction"))
         else:
-            # запасной вариант: если в pol["auto"]["buy_fraction"] есть словарь — возьмём «normal»
             bf_auto = (pol.get("auto") or {}).get("buy_fraction") or {}
             if isinstance(bf_auto, dict) and "normal" in bf_auto:
                 buy_fraction = float(bf_auto.get("normal", buy_fraction))
     except Exception:
         pass
 
-    advise = "Совет: ничего не делать"
+    # Информация о модели
+    model_info = ""
+    if model_path:
+        try:
+            model_name = Path(model_path).stem if model_path else "unknown"
+            # Попытаемся извлечь дату из имени файла (формат: model_SYMBOL_TF_YYYYMMDD_HHMMSS.pkl)
+            parts = model_name.split("_")
+            if len(parts) >= 4:
+                date_part = parts[-2] if parts[-2].isdigit() and len(parts[-2]) == 8 else ""
+                if date_part:
+                    model_info = f"📦 Модель: {date_part[:4]}-{date_part[4:6]}-{date_part[6:8]}"
+                else:
+                    model_info = f"📦 Модель: {model_name[:30]}"
+            else:
+                model_info = f"📦 Модель: {model_name[:30]}"
+        except Exception:
+            model_info = "📦 Модель: активная"
+
+    # Формирование сообщения
+    msg_lines = [
+        f"{emoji} {side}",
+        f"━━━━━━━━━━━━━━━━━━━━",
+        f"🏦 Биржа: {ex}",
+        f"💰 Пара: {symbol}",
+        f"⏰ Таймфрейм: {timeframe}",
+        f"💵 Цена: {price_s}",
+        f"🕐 Время: {time_s}",
+        f"",
+        f"📊 СИГНАЛ:",
+        f"• Вероятность: {proba:.1%}",
+        f"• Порог модели: {threshold:.1%}",
+        f"• Запас: {gap_pp:+.1f} п.п. ({'сильный' if abs(gap_pp) > 5 else 'умеренный'})",
+        f"",
+        vol_info,
+    ]
+
+    if model_info:
+        msg_lines.append(f"{model_info}")
+
+    # Добавляем предупреждения о рисках
+    if risk_warnings:
+        msg_lines.append("")
+        msg_lines.append("⚠️ РИСКИ:")
+        for warn in risk_warnings[:3]:  # Макс 3 предупреждения
+            msg_lines.append(warn)
+
+    # Добавляем детали фильтров (если есть и сигнал BUY)
+    if filter_details and final_signal.lower() == "buy":
+        msg_lines.append("")
+        msg_lines.append("✓ ФИЛЬТРЫ ПРОЙДЕНЫ:")
+        for detail in filter_details[:4]:  # Макс 4 фильтра
+            msg_lines.append(detail)
+
+    # Рекомендации и команды
+    msg_lines.append("")
     if final_signal.lower() == "buy":
-        advise = f"Совет: купить на {buy_fraction*100:.0f}% капитала"
+        msg_lines.append(f"💡 РЕКОМЕНДАЦИЯ:")
+        msg_lines.append(f"Купить на {buy_fraction*100:.0f}% от капитала")
+        msg_lines.append(f"")
+        msg_lines.append(f"🤖 Быстрая команда:")
+        msg_lines.append(f"/buy {exchange} {symbol} {buy_fraction}")
+    else:
+        msg_lines.append(f"💡 РЕКОМЕНДАЦИЯ:")
+        msg_lines.append(f"Пропустить сделку (не выполнены условия)")
+        if reasons:
+            top_reason = reasons[0] if reasons else "неизвестно"
+            msg_lines.append(f"Причина: {top_reason}")
 
-    # быстрая команда SELL (как ты просил)
-    # Пример: /sell bybit BTC/USDT 0.25 @ 3520 tf=15m
-    # Возьмём текущую цену и подставим 0.25 как шаблон.
-    quick_sell = f"/sell {exchange} {symbol} 0.25 @ {close:.2f} tf={timeframe}"
-
-    msg = (
-        f"{emoji} {side} — {ex} • {symbol} • {timeframe}\n"
-        f"Цена: {price_s}  •  Время: {time_s}\n"
-        f"Шанс: {proba:.1%}  (порог {threshold:.1%}, запас {gap_pp:+.1f} п.п.)\n"
-        f"{vol} {advise}\n"
-        f"Команда: {quick_sell}"
-    )
-
+    msg = "\n".join(msg_lines)
     send_telegram(msg)

@@ -27,36 +27,14 @@ def risk_policy_get():
     return p
 
 
-class RiskPolicyUpdate(BaseModel):
-    """Обновление риск-политики (deep merge)"""
-
-    updates: Dict[str, Any]
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "updates": {
-                    "monitor": {
-                        "enabled": True,
-                        "timeframe": "15m",
-                        "partial_at": 0.03,
-                        "partial_size": 0.30,
-                        "flat_after": -0.01,
-                        "cooldown_minutes": 60,
-                        "min_ret_change": 0.005,
-                        "types": ["partial", "flat"],
-                        "only_symbols": ["ETH/USDT"],
-                        "exclude_symbols": [],
-                    }
-                }
-            }
-        }
-    )
-
-
 @router.post("/policy")
-def risk_policy_set(req: RiskPolicyUpdate, _=Depends(require_api_key)):
-    """Обновить риск-политику (deep merge с валидацией)"""
+def risk_policy_set(policy: Dict[str, Any], _=Depends(require_api_key)):
+    """
+    Обновить риск-политику (deep merge с валидацией)
+    
+    Принимает полную или частичную политику напрямую (без обёртки "updates").
+    Примеры см. в GET /risk/policy или docs/BEGINNER_GUIDE.md
+    """
     base = load_policy() or {}
     try:
         # если база чистая — используем её
@@ -65,7 +43,7 @@ def risk_policy_set(req: RiskPolicyUpdate, _=Depends(require_api_key)):
         # если в базе мусор/старые поля — начинаем с пустой
         base = {}
 
-    cur = _deep_merge_policy(base, req.updates or {})
+    cur = _deep_merge_policy(base, policy or {})
 
     try:
         valid = RiskPolicy.model_validate(cur).model_dump(exclude_none=True)
