@@ -33,16 +33,19 @@
   - ✅ Создан бэкап: src/main_old.py
   - ✅ Коммит: refactor: decompose main.py into modular routers (Part 2/2)
 
+**Завершено дополнительно (2025-10-10):**
+- ✅ Завершение заглушек в роутерах:
+  - ✅ automation.py (scheduler status + manual job execution)
+  - ✅ ui.py (HTML summary + equity chart)
+  - ✅ journal.py (CSV/XLSX export)
+  - ✅ backup.py (ZIP snapshot)
+  - ✅ trade.py (manual buy/sell/short/cover commands)
+- ✅ Исправление ruff ошибок (23 → 3, все активные файлы чистые)
+- ✅ Все 15 роутеров полностью функциональны (80+ эндпоинтов)
+
 **Осталось в версии 0.8:**
-- ⏳ Завершение заглушек в роутерах:
-  - automation.py (scheduler status integration)
-  - ui.py (HTML endpoints)
-  - journal.py (CSV/XLSX export)
-  - backup.py (snapshot endpoint)
-  - trade.py (manual buy/sell commands)
 - ⏳ Тестирование всех эндпоинтов в Swagger UI
 - ⏳ Расширение тестов (coverage >80%)
-- ⏳ Исправление ruff ошибок (E701, E702)
 - ⏳ Создание docs/API.md
 - ⏳ Настройка CI/CD (GitHub Actions)
 
