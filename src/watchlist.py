@@ -8,10 +8,10 @@ CFG_DIR.mkdir(parents=True, exist_ok=True)
 WL_PATH = CFG_DIR / "watchlist.json"
 
 DEFAULT: List[Dict[str, Any]] = [
-    {"exchange": "bybit", "symbol": "BTC/USDT", "timeframe": "15m", "limit": 500},
+    {"exchange": "bybit", "symbol": "BTC/USDT", "timeframe": "1h", "limit": 500},
     {"exchange": "bybit", "symbol": "ETH/USDT", "timeframe": "15m", "limit": 500},
-    {"exchange": "binance", "symbol": "BTC/USDT", "timeframe": "1h", "limit": 500},
-    {"exchange": "binance", "symbol": "ETH/USDT", "timeframe": "15m", "limit": 500},
+    {"exchange": "bybit", "symbol": "SOL/USDT", "timeframe": "1h", "limit": 500},
+    {"exchange": "bybit", "symbol": "BNB/USDT", "timeframe": "1h", "limit": 500},
 ]
 
 

@@ -30,7 +30,7 @@ start_server.bat
 
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "start_date": "2024-01-01",
@@ -42,7 +42,7 @@ start_server.bat
 
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "start_date": "2024-01-01",
@@ -214,7 +214,7 @@ GET /backtest/compare?run_ids=backtest_20251010_233045,backtest_20251010_234521
 
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "start_date": "2024-01-01",
@@ -233,7 +233,7 @@ GET /backtest/compare?run_ids=backtest_20251010_233045,backtest_20251010_234521
 
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "start_date": "2024-01-01",
@@ -252,7 +252,7 @@ GET /backtest/compare?run_ids=backtest_20251010_233045,backtest_20251010_234521
 
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "start_date": "2024-01-01",
@@ -272,7 +272,7 @@ GET /backtest/compare?run_ids=backtest_20251010_233045,backtest_20251010_234521
 
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "start_date": "2024-01-01",

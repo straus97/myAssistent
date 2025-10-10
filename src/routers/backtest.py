@@ -49,7 +49,7 @@ class BacktestRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "exchange": "binance",
+                "exchange": "bybit",
                 "symbol": "BTC/USDT",
                 "timeframe": "1h",
                 "start_date": "2024-01-01",
@@ -118,7 +118,7 @@ def run_backtest_endpoint(
     **Пример:**
     ```json
     {
-      "exchange": "binance",
+      "exchange": "bybit",
       "symbol": "BTC/USDT",
       "timeframe": "1h",
       "start_date": "2024-01-01",

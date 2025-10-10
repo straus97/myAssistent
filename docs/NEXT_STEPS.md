@@ -171,7 +171,7 @@
 ```python
 POST /backtest/run
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "start_date": "2024-01-01",
@@ -240,7 +240,7 @@ tensorboard>=2.14
    ```
    POST /model/train
    {
-     "exchange": "binance",
+     "exchange": "bybit",
      "symbol": "BTC/USDT",
      "timeframe": "1h"
    }

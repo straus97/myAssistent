@@ -168,7 +168,7 @@ curl -X GET "http://127.0.0.1:8000/news/latest" \
 Загружает OHLCV данные с биржи.
 
 **Query Parameters:**
-- `exchange` (default: `binance`) — биржа
+- `exchange` (default: `bybit`) — биржа
 - `symbol` (default: `BTC/USDT`) — торговая пара
 - `timeframe` (default: `1h`) — таймфрейм (`1m`, `5m`, `15m`, `1h`, `4h`, `1d`)
 - `limit` (default: 500) — количество свечей
@@ -178,7 +178,7 @@ curl -X GET "http://127.0.0.1:8000/news/latest" \
 {
   "status": "ok",
   "stored": 500,
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h"
 }
@@ -191,7 +191,7 @@ curl -X GET "http://127.0.0.1:8000/news/latest" \
 Возвращает последние свечи.
 
 **Query Parameters:**
-- `exchange` (default: `binance`)
+- `exchange` (default: `bybit`)
 - `symbol` (default: `BTC/USDT`)
 - `timeframe` (default: `1h`)
 - `limit` (default: 100)
@@ -223,7 +223,7 @@ curl -X GET "http://127.0.0.1:8000/news/latest" \
 Строит датасет с фичами для ML (RSI, BB, новости, etc.).
 
 **Query Parameters:**
-- `exchange` (default: `binance`)
+- `exchange` (default: `bybit`)
 - `symbol` (default: `BTC/USDT`)
 - `timeframe` (default: `1h`)
 - `horizon_steps` (default: 6) — горизонт прогноза
@@ -250,7 +250,7 @@ curl -X GET "http://127.0.0.1:8000/news/latest" \
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "horizon_steps": 6,
@@ -325,7 +325,7 @@ curl -X GET "http://127.0.0.1:8000/news/latest" \
 {
   "status": "ok",
   "data": {
-    "binance:BTC/USDT:1h:6": "artifacts/models/xgb_20231008_030000.pkl"
+    "bybit:BTC/USDT:1h:6": "artifacts/models/xgb_20231008_030000.pkl"
   }
 }
 ```
@@ -339,7 +339,7 @@ curl -X GET "http://127.0.0.1:8000/news/latest" \
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "horizon_steps": 6,
@@ -356,7 +356,7 @@ Champion/Challenger отбор: обучает новую модель и про
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "horizon_steps": 6
@@ -382,7 +382,7 @@ Champion/Challenger отбор: обучает новую модель и про
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "window_train": 1200,
@@ -423,7 +423,7 @@ Champion/Challenger отбор: обучает новую модель и про
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "15m",
   "horizon_steps": 6,
@@ -462,7 +462,7 @@ Champion/Challenger отбор: обучает новую модель и про
   "data": [
     {
       "id": 123,
-      "exchange": "binance",
+      "exchange": "bybit",
       "symbol": "BTC/USDT",
       "timeframe": "15m",
       "direction": "BUY",
@@ -606,7 +606,7 @@ Champion/Challenger отбор: обучает новую модель и про
   "status": "ok",
   "positions": [
     {
-      "exchange": "binance",
+      "exchange": "bybit",
       "symbol": "BTC/USDT",
       "timeframe": "1h",
       "qty": 0.15,
@@ -641,7 +641,7 @@ Champion/Challenger отбор: обучает новую модель и про
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "price": 51000.0
@@ -666,7 +666,7 @@ Champion/Challenger отбор: обучает новую модель и про
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "qty": 0.1,
@@ -683,7 +683,7 @@ Champion/Challenger отбор: обучает новую модель и про
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "1h",
   "qty": 0.05,
@@ -798,7 +798,7 @@ Champion/Challenger отбор: обучает новую модель и про
   "status": "ok",
   "data": [
     {
-      "exchange": "binance",
+      "exchange": "bybit",
       "symbol": "BTC/USDT",
       "timeframe": "1h"
     }
@@ -815,7 +815,7 @@ Champion/Challenger отбор: обучает новую модель и про
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "ETH/USDT",
   "timeframe": "15m"
 }
@@ -830,7 +830,7 @@ Champion/Challenger отбор: обучает новую модель и про
 **Request Body:**
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "SOL/USDT"
 }
 ```
@@ -1039,7 +1039,7 @@ curl -X POST "http://127.0.0.1:8000/signal/latest" \
 ## 📌 Дополнительная информация
 
 - **Таймфреймы:** `1m`, `5m`, `15m`, `1h`, `4h`, `1d`
-- **Биржи:** `binance`, `bybit`
+- **Биржи:** `bybit` (основная), `binance` (поддерживается через ccxt)
 - **Логи:** `logs/app.log`, `logs/server.log`
 - **Артефакты:** `artifacts/models/*.pkl`, `artifacts/reports/*.html`
 - **Конфигурация:** `artifacts/config/*.json`

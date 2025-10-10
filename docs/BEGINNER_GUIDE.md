@@ -173,7 +173,7 @@ TELEGRAM_CHAT_ID=123456789
 
 ```
 Query Parameters:
-  exchange: binance
+  exchange: bybit
   symbol: BTC/USDT
   timeframe: 15m
   limit: 1000
@@ -199,7 +199,7 @@ Query Parameters:
 
 ```
 Query Parameters:
-  exchange: binance
+  exchange: bybit
   symbol: BTC/USDT
   timeframe: 15m
   horizon_steps: 6
@@ -223,7 +223,7 @@ Query Parameters:
 
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "15m",
   "horizon_steps": 6,
@@ -291,7 +291,7 @@ Query Parameters:
 
 ```json
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "15m",
   "horizon_steps": 6,
@@ -500,7 +500,7 @@ POST /trade/guard
 ```
 POST /model/train
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "15m"
 }

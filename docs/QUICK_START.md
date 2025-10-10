@@ -332,7 +332,7 @@ POST /dataset/build?symbol=BTC/USDT&timeframe=15m
 ```
 POST /model/train
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "15m"
 }
@@ -343,7 +343,7 @@ POST /model/train
 ```
 POST /signal/latest
 {
-  "exchange": "binance",
+  "exchange": "bybit",
   "symbol": "BTC/USDT",
   "timeframe": "15m",
   "auto_trade": false
