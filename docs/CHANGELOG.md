@@ -23,6 +23,63 @@
   - **Производительность:** 0.02-0.03 сек после загрузки модели (~5 сек первый раз)
   - Зависимости: `transformers>=4.30.0`, `torch>=2.0.0`, `sentencepiece>=0.1.99`
 
+- **Расширенные фичи: 40+ → 78 фич (критично для качества моделей):**
+  
+  **Технические индикаторы (+18 фич):**
+  - MACD (line, signal, histogram) - дивергенция скользящих средних
+  - ATR (14) + нормализованная - волатильность
+  - ADX (14) - сила тренда (>25 = сильный тренд)
+  - Stochastic Oscillator (K, D) - перекупленность/перепроданность
+  - Williams %R - momentum индикатор
+  - CCI (20) - Commodity Channel Index
+  - EMA crossovers (9/21, 21/50) - тренд-следящие сигналы
+  - Дополнительный returns (ret_24)
+  
+  **On-chain метрики (+9 фич) - `src/onchain.py`:**
+  - Exchange net flows (приток/отток с бирж)
+  - Exchange inflow/outflow (раздельно)
+  - Active addresses (сетевая активность)
+  - New addresses (adoption метрика)
+  - SOPR - Spent Output Profit Ratio (>1 = продажа в прибыли)
+  - MVRV Ratio (>3.5 = overvalued, <1 = undervalued)
+  - NUPL - Net Unrealized Profit/Loss
+  - Puell Multiple - майнинговая экономика
+  - Интеграция Glassnode API (требует API key, placeholder values по умолчанию)
+  
+  **Макроэкономические данные (+7 фич) - `src/macro.py`:**
+  - **Fear & Greed Index (работает без API key!)** ✅
+    - Текущее значение: 64 (Greed) - успешно протестировано
+    - Normalized version (-1..1)
+  - Federal Funds Rate (через FRED API)
+  - 10-Year Treasury Yield
+  - 2-Year Treasury Yield
+  - Yield Spread (индикатор рецессии)
+  - DXY (US Dollar Index) - структура готова
+  
+  **Social signals (+5 фич) - `src/social.py`:**
+  - Twitter mentions count + sentiment estimate
+  - Reddit posts count + sentiment estimate
+  - Google Trends interest (требует pytrends)
+  - Структура для Twitter API v2 и Reddit OAuth
+  
+  **Итого:** 78 фич (было 40+)
+  - Технические: 25
+  - Новостные: 26 (включая теги)
+  - On-chain: 9
+  - Macro: 7
+  - Social: 5
+
+- **Улучшенные Telegram уведомления:**
+  - Подробная информация о сигналах с эмодзи
+  - Разбивка по секциям: биржа, пара, цена, сигнал, волатильность, риски, фильтры
+  - Рекомендации по размеру позиции
+  - Быстрые команды для исполнения (/buy, /sell)
+  - Информация о дате обучения модели
+  
+- **Исправления:**
+  - Исправлен endpoint `POST /risk/policy` - теперь принимает policy напрямую (без обёртки "updates")
+  - Работает корректно в Swagger UI
+
 ---
 
 ## [0.9.0] — 2025-10-10

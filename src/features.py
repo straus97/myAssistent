@@ -5,6 +5,9 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 from .db import Price, Article, ArticleAnnotation
+from .onchain import get_onchain_features
+from .macro import get_macro_features
+from .social import get_social_features
 
 # Соответствие таймфреймов pandas (без устаревших 'T'/'H')
 PANDAS_FREQ = {"1m": "1min", "5m": "5min", "15m": "15min", "1h": "1h", "4h": "4h", "1d": "1D"}
@@ -37,6 +40,105 @@ def _bbands(series: pd.Series, window: int = 20, nstd: float = 2.0) -> tuple[pd.
     upper = mid + nstd * std
     lower = mid - nstd * std
     return mid, upper, lower
+
+
+def _macd(series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """
+    MACD (Moving Average Convergence Divergence)
+    Returns: (macd_line, signal_line, histogram)
+    """
+    ema_fast = series.ewm(span=fast, adjust=False).mean()
+    ema_slow = series.ewm(span=slow, adjust=False).mean()
+    macd_line = ema_fast - ema_slow
+    signal_line = macd_line.ewm(span=signal, adjust=False).mean()
+    histogram = macd_line - signal_line
+    return macd_line, signal_line, histogram
+
+
+def _atr(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 14) -> pd.Series:
+    """
+    Average True Range (ATR) - волатильность
+    """
+    tr1 = high - low
+    tr2 = (high - close.shift(1)).abs()
+    tr3 = (low - close.shift(1)).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.ewm(alpha=1/window, adjust=False, min_periods=window).mean()
+    return atr
+
+
+def _adx(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 14) -> pd.Series:
+    """
+    Average Directional Index (ADX) - сила тренда (0-100)
+    Высокие значения (>25) = сильный тренд
+    """
+    # True Range
+    tr1 = high - low
+    tr2 = (high - close.shift(1)).abs()
+    tr3 = (low - close.shift(1)).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    
+    # Directional Movement
+    up_move = high - high.shift(1)
+    down_move = low.shift(1) - low
+    
+    pos_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0)
+    neg_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0)
+    
+    pos_dm = pd.Series(pos_dm, index=high.index)
+    neg_dm = pd.Series(neg_dm, index=low.index)
+    
+    # Smoothed indicators
+    atr = tr.ewm(alpha=1/window, adjust=False, min_periods=window).mean()
+    pos_di = 100 * (pos_dm.ewm(alpha=1/window, adjust=False, min_periods=window).mean() / atr)
+    neg_di = 100 * (neg_dm.ewm(alpha=1/window, adjust=False, min_periods=window).mean() / atr)
+    
+    # ADX
+    dx = 100 * ((pos_di - neg_di).abs() / (pos_di + neg_di).replace(0, np.nan))
+    adx = dx.ewm(alpha=1/window, adjust=False, min_periods=window).mean()
+    
+    return adx.fillna(0)
+
+
+def _stochastic(high: pd.Series, low: pd.Series, close: pd.Series, k_window: int = 14, d_window: int = 3) -> tuple[pd.Series, pd.Series]:
+    """
+    Stochastic Oscillator - перекупленность/перепроданность
+    Returns: (%K, %D)
+    %K > 80 = overbought, %K < 20 = oversold
+    """
+    lowest_low = low.rolling(window=k_window, min_periods=k_window).min()
+    highest_high = high.rolling(window=k_window, min_periods=k_window).max()
+    
+    k_percent = 100 * ((close - lowest_low) / (highest_high - lowest_low).replace(0, np.nan))
+    d_percent = k_percent.rolling(window=d_window, min_periods=d_window).mean()
+    
+    return k_percent.fillna(50), d_percent.fillna(50)
+
+
+def _williams_r(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 14) -> pd.Series:
+    """
+    Williams %R - momentum indicator (-100 to 0)
+    Values > -20 = overbought, < -80 = oversold
+    """
+    highest_high = high.rolling(window=window, min_periods=window).max()
+    lowest_low = low.rolling(window=window, min_periods=window).min()
+    
+    williams = -100 * ((highest_high - close) / (highest_high - lowest_low).replace(0, np.nan))
+    return williams.fillna(-50)
+
+
+def _cci(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 20) -> pd.Series:
+    """
+    Commodity Channel Index (CCI)
+    Typical values: +100 to -100, but can exceed
+    > +100 = overbought, < -100 = oversold
+    """
+    typical_price = (high + low + close) / 3
+    sma = typical_price.rolling(window=window, min_periods=window).mean()
+    mad = (typical_price - sma).abs().rolling(window=window, min_periods=window).mean()
+    
+    cci = (typical_price - sma) / (0.015 * mad.replace(0, np.nan))
+    return cci.fillna(0)
 
 
 def load_prices_df(db: Session, exchange: str, symbol: str, timeframe: str) -> pd.DataFrame:
@@ -92,12 +194,13 @@ def build_dataset(
         raise ValueError("Нет цен в БД. Сначала вызови /prices/fetch.")
     news = load_news_df(db)
 
-    # --- ценовые фичи ---
+    # --- ценовые фичи (returns) ---
     df = px.copy()
     df["ret_1"] = df["close"].pct_change(1)
     df["ret_3"] = df["close"].pct_change(3)
     df["ret_6"] = df["close"].pct_change(6)
     df["ret_12"] = df["close"].pct_change(12)
+    df["ret_24"] = df["close"].pct_change(24)  # Новая фича
     df["vol_norm"] = (df["volume"] - df["volume"].rolling(24).mean()) / (df["volume"].rolling(24).std() + 1e-9)
 
     # --- технические фичи ---
@@ -106,12 +209,41 @@ def build_dataset(
 
     # Bollinger Bands (20, 2)
     mid, upper, lower = _bbands(df["close"], window=20, nstd=2.0)
-    # относительная ширина (без деления на 0 и бесконечностей)
     df["bb_width_20_2"] = (
         ((upper - lower) / mid.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan).clip(lower=-10, upper=10)
     )
-    # положение цены внутри полос (0..1)
     df["bb_pct_20_2"] = ((df["close"] - lower) / (upper - lower)).clip(0, 1)
+    
+    # MACD (12, 26, 9)
+    macd_line, signal_line, macd_hist = _macd(df["close"], fast=12, slow=26, signal=9)
+    df["macd"] = macd_line
+    df["macd_signal"] = signal_line
+    df["macd_hist"] = macd_hist
+    
+    # ATR (14) - волатильность
+    df["atr_14"] = _atr(df["high"], df["low"], df["close"], window=14)
+    df["atr_pct"] = df["atr_14"] / df["close"]  # Нормализованная ATR
+    
+    # ADX (14) - сила тренда
+    df["adx_14"] = _adx(df["high"], df["low"], df["close"], window=14)
+    
+    # Stochastic Oscillator (14, 3)
+    stoch_k, stoch_d = _stochastic(df["high"], df["low"], df["close"], k_window=14, d_window=3)
+    df["stoch_k"] = stoch_k
+    df["stoch_d"] = stoch_d
+    
+    # Williams %R (14)
+    df["williams_r"] = _williams_r(df["high"], df["low"], df["close"], window=14)
+    
+    # CCI (20)
+    df["cci_20"] = _cci(df["high"], df["low"], df["close"], window=20)
+    
+    # EMA crossovers (дополнительные фичи для трендов)
+    df["ema_9"] = df["close"].ewm(span=9, adjust=False).mean()
+    df["ema_21"] = df["close"].ewm(span=21, adjust=False).mean()
+    df["ema_50"] = df["close"].ewm(span=50, adjust=False).mean()
+    df["ema_cross_9_21"] = (df["ema_9"] - df["ema_21"]) / df["close"]  # Normalized
+    df["ema_cross_21_50"] = (df["ema_21"] - df["ema_50"]) / df["close"]  # Normalized
 
     # --- новости: агрегируем по таймфрейму свечи ---
     if news is not None and not news.empty:
@@ -134,30 +266,92 @@ def build_dataset(
             for t in TAGS:
                 df[f"tag_{t}_{w}"] = 0.0
 
+    # --- on-chain метрики ---
+    # Получаем последние значения (обновляются раз в день для всех строк)
+    try:
+        asset = symbol.split("/")[0] if "/" in symbol else "BTC"
+        onchain_feats = get_onchain_features(asset, days=7)
+        for key, value in onchain_feats.items():
+            df[key] = value
+    except Exception as e:
+        print(f"[OnChain] Warning: {e}")
+        # Placeholder values если API недоступен
+        onchain_keys = [
+            "onchain_exchange_netflow", "onchain_exchange_inflow", "onchain_exchange_outflow",
+            "onchain_active_addresses", "onchain_new_addresses", "onchain_sopr",
+            "onchain_mvrv", "onchain_nupl", "onchain_puell_multiple"
+        ]
+        for key in onchain_keys:
+            df[key] = 0.0
+    
+    # --- макроэкономические данные ---
+    try:
+        macro_feats = get_macro_features()
+        for key, value in macro_feats.items():
+            df[key] = value
+    except Exception as e:
+        print(f"[Macro] Warning: {e}")
+        macro_keys = [
+            "macro_fear_greed", "macro_fear_greed_norm", "macro_fed_rate",
+            "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread", "macro_dxy"
+        ]
+        for key in macro_keys:
+            df[key] = 0.0
+    
+    # --- social signals ---
+    try:
+        social_feats = get_social_features()
+        for key, value in social_feats.items():
+            df[key] = value
+    except Exception as e:
+        print(f"[Social] Warning: {e}")
+        social_keys = [
+            "social_twitter_mentions", "social_twitter_sentiment", "social_reddit_posts",
+            "social_reddit_sentiment", "social_google_trends"
+        ]
+        for key in social_keys:
+            df[key] = 0.0
+
     # --- целевая переменная ---
     df["future_ret"] = df["close"].shift(-horizon_steps) / df["close"] - 1.0
     df["y"] = (df["future_ret"] > 0).astype(int)
 
+    # список колонок-фич (РАСШИРЕННЫЙ!)
     feature_cols = (
         [
-            "ret_1",
-            "ret_3",
-            "ret_6",
-            "ret_12",
-            "vol_norm",
-            # новые технические признаки:
-            "rsi_14",
-            "bb_pct_20_2",
-            "bb_width_20_2",
-            # новости:
-            "news_cnt_6",
-            "news_cnt_24",
-            "sent_mean_6",
-            "sent_mean_24",
+            # Ценовые фичи
+            "ret_1", "ret_3", "ret_6", "ret_12", "ret_24", "vol_norm",
+            # Технические индикаторы
+            "rsi_14", "bb_pct_20_2", "bb_width_20_2",
+            "macd", "macd_signal", "macd_hist",
+            "atr_14", "atr_pct", "adx_14",
+            "stoch_k", "stoch_d", "williams_r", "cci_20",
+            "ema_9", "ema_21", "ema_50", "ema_cross_9_21", "ema_cross_21_50",
+            # Новостные фичи
+            "news_cnt_6", "news_cnt_24", "sent_mean_6", "sent_mean_24",
         ]
         + [f"tag_{t}_{6}" for t in TAGS]
         + [f"tag_{t}_{24}" for t in TAGS]
+        # On-chain фичи
+        + [
+            "onchain_exchange_netflow", "onchain_exchange_inflow", "onchain_exchange_outflow",
+            "onchain_active_addresses", "onchain_new_addresses", "onchain_sopr",
+            "onchain_mvrv", "onchain_nupl", "onchain_puell_multiple",
+        ]
+        # Макро фичи
+        + [
+            "macro_fear_greed", "macro_fear_greed_norm", "macro_fed_rate",
+            "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread", "macro_dxy",
+        ]
+        # Social фичи
+        + [
+            "social_twitter_mentions", "social_twitter_sentiment", "social_reddit_posts",
+            "social_reddit_sentiment", "social_google_trends",
+        ]
     )
 
     df = df.dropna(subset=feature_cols + ["future_ret", "y"])
+    
+    print(f"[Features] Dataset built: {len(df)} rows x {len(feature_cols)} features")
+    print(f"[Features] Technical: 25, News: {2 + len(TAGS)*2}, OnChain: 9, Macro: 7, Social: 5")
     return df, feature_cols
