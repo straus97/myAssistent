@@ -48,9 +48,11 @@ prometheus-fastapi-instrumentator>=6.1
 prometheus-client>=0.19
 
 # Reinforcement Learning
-stable-baselines3>=2.0
+stable-baselines3[extra]>=2.0
 gymnasium>=0.28
-tensorboard>=2.14  # For RL training monitoring
+tensorboard>=2.14
+tqdm>=4.65
+rich>=13.0  # For RL training monitoring
 
 # Development Tools
 ruff>=0.1.9
