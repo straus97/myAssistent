@@ -1,0 +1,47 @@
+---
+alwaysApply: false
+---
+
+# Rule: REST API (Design & DRF)
+
+**Scope:** public/internal REST, versioned and documented.  
+**Outcome:** consistent resources, predictable pagination, errors, and auth.
+
+## Design
+- Resources and nouns; HTTP verbs; idempotency for PUT/DELETE.
+- Version via URL (`/api/v1/`); consistent pagination & filtering.
+- Unified error shape with codes; rate limits for public endpoints.
+
+## Django/DRF Skeleton
+- Serializers for validation, ViewSets for CRUD, Permissions per role,
+  `select_related/prefetch_related` and pagination mixins.
+
+## Performance
+- ETag/Last-Modified, gzip/br, field selection (`?fields=`), caching.
+
+## Do
+- Contract tests from OpenAPI; monitor 4xx/5xx and latency.
+## Don’t
+- Break backwards compatibility without a deprecation window.
+
+# Rule: REST API (Design & DRF)
+
+**Scope:** public/internal REST, versioned and documented.  
+**Outcome:** consistent resources, predictable pagination, errors, and auth.
+
+## Design
+- Resources and nouns; HTTP verbs; idempotency for PUT/DELETE.
+- Version via URL (`/api/v1/`); consistent pagination & filtering.
+- Unified error shape with codes; rate limits for public endpoints.
+
+## Django/DRF Skeleton
+- Serializers for validation, ViewSets for CRUD, Permissions per role,
+  `select_related/prefetch_related` and pagination mixins.
+
+## Performance
+- ETag/Last-Modified, gzip/br, field selection (`?fields=`), caching.
+
+## Do
+- Contract tests from OpenAPI; monitor 4xx/5xx and latency.
+## Don’t
+- Break backwards compatibility without a deprecation window.

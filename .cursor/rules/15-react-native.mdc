@@ -1,0 +1,30 @@
+---
+alwaysApply: false
+---
+
+# Rule: React Native
+
+**Scope:** shared mobile UI patterns and performance.  
+**Outcome:** smooth UX on iOS/Android.
+
+## Principles
+- Modular components; StyleSheet or styled libs; a11y roles/traits.
+- FlatList optimization (getItemLayout, keyExtractor, windowSize).
+
+## Do
+- Memoize renderItem; avoid anonymous handlers; use Reanimated for complex gestures.
+## Don’t
+- Block JS thread; avoid large images without caching.
+# Rule: React Native
+
+**Scope:** shared mobile UI patterns and performance.  
+**Outcome:** smooth UX on iOS/Android.
+
+## Principles
+- Modular components; StyleSheet or styled libs; a11y roles/traits.
+- FlatList optimization (getItemLayout, keyExtractor, windowSize).
+
+## Do
+- Memoize renderItem; avoid anonymous handlers; use Reanimated for complex gestures.
+## Don’t
+- Block JS thread; avoid large images without caching.

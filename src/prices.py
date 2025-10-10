@@ -1,42 +1,128 @@
-# src/prices.py
-from typing import List
-import ccxt
+from __future__ import annotations
+import math
+from typing import List, Tuple
+import requests
 from sqlalchemy.orm import Session
-from .db import Price
+from src.db import Price
 
-def _get_exchange(name: str):
-    name = name.lower()
-    if not hasattr(ccxt, name):
-        raise ValueError(f"Unsupported exchange: {name}")
-    ex = getattr(ccxt, name)({'enableRateLimit': True})
-    return ex
+# --- таймфреймы и утилиты ---
+_BINANCE_TF = {"1m": "1m", "5m": "5m", "15m": "15m", "1h": "1h", "4h": "4h", "1d": "1d"}
 
-def fetch_and_store_prices(db: Session, exchange: str, symbol: str, timeframe: str, limit: int = 500) -> int:
-    ex = _get_exchange(exchange)
-    ex.load_markets()
-    if symbol not in ex.markets:
-        raise ValueError(f"Symbol {symbol} not found on {exchange}. Example symbols: {list(ex.markets.keys())[:5]}")
-    if timeframe not in ex.timeframes:
-        raise ValueError(f"Timeframe {timeframe} not supported by {exchange}. Options: {list(ex.timeframes.keys())}")
 
-    ohlcv: List[List[float]] = ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+def _binance_symbol(symbol: str) -> str:
+    return symbol.replace("/", "")
+
+
+def _bybit_interval(tf: str) -> str:
+    # Bybit v5: для spot/linear разрешены минуты как "1","3","5","15","60","240", "D"
+    tf = tf.lower()
+    if tf.endswith("m"):
+        return str(int(tf[:-1]))
+    if tf.endswith("h"):
+        return str(int(tf[:-1]) * 60)
+    if tf.endswith("d"):
+        return "D"
+    return "60"
+
+
+def _ms(ts: float | int) -> int:
+    if ts > 1e12:
+        return int(ts)
+    return int(ts * 1000)
+
+
+def _insert_prices(
+    db: Session, exchange: str, symbol: str, timeframe: str, rows: List[Tuple[int, float, float, float, float, float]]
+) -> int:
+    """rows: list of (ts_ms, o, h, l, c, v)"""
     added = 0
-    for ts, o, h, l, c, v in ohlcv:
-        exists = (
-            db.query(Price)
-            .filter(Price.exchange==exchange, Price.symbol==symbol, Price.timeframe==timeframe, Price.ts==ts)
-            .first()
+    batch = 0
+    for ts, o, h, l, c, v in rows:
+        db.add(
+            Price(
+                exchange=exchange,
+                symbol=symbol,
+                timeframe=timeframe,
+                ts=int(ts),
+                open=float(o),
+                high=float(h),
+                low=float(l),
+                close=float(c),
+                volume=float(v),
+            )
         )
-        if exists:
-            continue
-        row = Price(
-            exchange=exchange, symbol=symbol, timeframe=timeframe, ts=ts,
-            open=o, high=h, low=l, close=c, volume=v
-        )
-        db.add(row)
+        added += 1
+        batch += 1
+        if batch >= 500:
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+            batch = 0
+    if batch:
         try:
             db.commit()
-            added += 1
         except Exception:
             db.rollback()
     return added
+
+
+# --- загрузчики по биржам ---
+def _fetch_binance(symbol: str, timeframe: str, limit: int) -> List[Tuple[int, float, float, float, float, float]]:
+    url = "https://api.binance.com/api/v3/klines"
+    params = {"symbol": _binance_symbol(symbol), "interval": _BINANCE_TF.get(timeframe, "15m"), "limit": int(limit)}
+    r = requests.get(url, params=params, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    out = []
+    for row in data:
+        ts = int(row[0])  # open time (ms)
+        o, h, l, c, v = map(float, [row[1], row[2], row[3], row[4], row[5]])
+        out.append((ts, o, h, l, c, v))
+    return out
+
+
+def _fetch_bybit(symbol: str, timeframe: str, limit: int) -> List[Tuple[int, float, float, float, float, float]]:
+    # Spot категория подходит для BTCUSDT/ETHUSDT и большей части watchlist
+    url = "https://api.bybit.com/v5/market/kline"
+    params = {
+        "category": "spot",
+        "symbol": _binance_symbol(symbol),
+        "interval": _bybit_interval(timeframe),
+        "limit": int(limit),
+    }
+    r = requests.get(url, params=params, timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    result = data.get("result") or {}
+    lst = result.get("list") or []
+    # Bybit отдаёт строки: [start, open, high, low, close, volume, turnover]
+    out = []
+    for row in reversed(lst):  # от старых к новым
+        ts = _ms(int(row[0]))
+        o, h, l, c, v = map(float, [row[1], row[2], row[3], row[4], row[5]])
+        out.append((ts, o, h, l, c, v))
+    return out[-limit:]
+
+
+# --- публичное API ---
+def fetch_and_store_prices(db: Session, exchange: str, symbol: str, timeframe: str, limit: int = 500) -> int:
+    """
+    Грузит OHLCV и сохраняет в БД.
+    Поддержка: binance, bybit (spot). Возвращает число добавленных строк.
+    """
+    exchange = (exchange or "").lower()
+    symbol = symbol.upper()
+    timeframe = timeframe.lower()
+    limit = int(limit)
+
+    if exchange == "binance":
+        rows = _fetch_binance(symbol, timeframe, limit)
+    elif exchange == "bybit":
+        rows = _fetch_bybit(symbol, timeframe, limit)
+    else:
+        raise ValueError(f"unsupported exchange '{exchange}'")
+
+    # отфильтруем NaN/пустые
+    rows = [r for r in rows if all(math.isfinite(x) for x in r)]
+    return _insert_prices(db, exchange, symbol, timeframe, rows)

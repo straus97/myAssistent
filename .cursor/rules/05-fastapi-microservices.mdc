@@ -1,0 +1,40 @@
+---
+alwaysApply: false
+---
+
+# Rule: FastAPI Microservices & Serverless
+
+**Scope:** stateless services behind API Gateway; event-driven flows.  
+**Outcome:** resilient, observable microservices with clear boundaries.
+
+## Principles
+- Stateless services; state in DB/cache. Retry + circuit breakers for calls.
+- Use message brokers (Kafka/RabbitMQ) for async workflows.
+- API Gateway (Kong/AWS API GW) for rate limiting, auth, request transforms.
+
+## Platform
+- Containers or serverless (Lambda/Azure Functions) with minimized cold start,
+  IaC (Terraform), OpenTelemetry tracing, Prometheus/Grafana dashboards.
+
+## Do
+- Idempotent handlers; DLQs; structured logging with trace IDs.
+## Don’t
+- Cross-service transactions without a saga pattern.
+# Rule: FastAPI Microservices & Serverless
+
+**Scope:** stateless services behind API Gateway; event-driven flows.  
+**Outcome:** resilient, observable microservices with clear boundaries.
+
+## Principles
+- Stateless services; state in DB/cache. Retry + circuit breakers for calls.
+- Use message brokers (Kafka/RabbitMQ) for async workflows.
+- API Gateway (Kong/AWS API GW) for rate limiting, auth, request transforms.
+
+## Platform
+- Containers or serverless (Lambda/Azure Functions) with minimized cold start,
+  IaC (Terraform), OpenTelemetry tracing, Prometheus/Grafana dashboards.
+
+## Do
+- Idempotent handlers; DLQs; structured logging with trace IDs.
+## Don’t
+- Cross-service transactions without a saga pattern.

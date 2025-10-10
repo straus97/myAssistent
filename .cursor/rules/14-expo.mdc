@@ -1,0 +1,16 @@
+# Rule: Expo (Mobile)
+
+**Scope:** React Native apps via Expo managed workflow.  
+**Outcome:** cross‑platform features with OTA updates.
+
+## Principles
+- Functional components; minimal global state; safe area handling.
+- Navigation via `react-navigation` or `expo-router`; deep linking enabled.
+
+## Performance
+- Optimize images (`expo-image`), lazy load screens, avoid heavy work on UI thread.
+
+## Do
+- Use `expo-updates`, `expo-constants`; Sentry for crash reporting.
+## Don’t
+- Hardcode safe area paddings—use `react-native-safe-area-context`.

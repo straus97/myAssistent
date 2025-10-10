@@ -1,0 +1,32 @@
+---
+alwaysApply: false
+---
+
+# Rule: TypeScript (Frontend/Node)
+
+**Scope:** type-safe UI and services.  
+**Outcome:** clean, maintainable TS with strict typing.
+
+## Principles
+- `strict` mode; prefer `interface`; avoid `any` and `enum` (use unions/maps).
+- Named exports; functional programming; early returns.
+- Clear naming: `isLoading`, `hasError`, `canSubmit`.
+
+## Do
+- Utility types (Partial/Pick/Omit), generics where useful, Zod for runtime validation.
+## Don’t
+- Mix domain and UI types—keep shared types in a `@app/common` package.
+# Rule: TypeScript (Frontend/Node)
+
+**Scope:** type-safe UI and services.  
+**Outcome:** clean, maintainable TS with strict typing.
+
+## Principles
+- `strict` mode; prefer `interface`; avoid `any` and `enum` (use unions/maps).
+- Named exports; functional programming; early returns.
+- Clear naming: `isLoading`, `hasError`, `canSubmit`.
+
+## Do
+- Utility types (Partial/Pick/Omit), generics where useful, Zod for runtime validation.
+## Don’t
+- Mix domain and UI types—keep shared types in a `@app/common` package.

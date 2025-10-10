@@ -1,0 +1,32 @@
+---
+alwaysApply: false
+---
+
+# Rule: Tailwind CSS
+
+**Scope:** styling system for web UI.  
+**Outcome:** consistent, responsive design via utility classes.
+
+## Principles
+- Utility-first; mobile-first; design tokens via Tailwind config.
+- No `@apply` in production; compose small, readable class strings.
+- Dark mode via class strategy; respect a11y contrast.
+
+## Do
+- Extract UI patterns into components (with Shadcn/Radix), keep layout utilities local.
+## Don’t
+- Deeply nest arbitrary values—extend theme instead.
+# Rule: Tailwind CSS
+
+**Scope:** styling system for web UI.  
+**Outcome:** consistent, responsive design via utility classes.
+
+## Principles
+- Utility-first; mobile-first; design tokens via Tailwind config.
+- No `@apply` in production; compose small, readable class strings.
+- Dark mode via class strategy; respect a11y contrast.
+
+## Do
+- Extract UI patterns into components (with Shadcn/Radix), keep layout utilities local.
+## Don’t
+- Deeply nest arbitrary values—extend theme instead.

@@ -1,0 +1,40 @@
+---
+alwaysApply: false
+---
+
+# Rule: Testing & QA
+
+**Scope:** unit, integration, E2E, performance, and contract tests.  
+**Outcome:** reliable CI with fast feedback and clear failures.
+
+## Strategy
+- Unit tests for pure logic (table-driven where apt). 
+- Integration tests for DB/cache/queues; E2E with Playwright for web flows.
+- Contract tests from OpenAPI; smoke tests for health endpoints.
+
+## Tooling
+- Python: pytest + coverage; JS: Jest/RTL + Playwright; Go/Ruby as needed.
+- Observability in tests: record traces for flaky path analysis.
+
+## Do
+- Arrange‑Act‑Assert; parallelize; seed data via factories.
+## Don’t
+- Use brittle selectors—prefer roles/testids; avoid fixed sleeps.
+# Rule: Testing & QA
+
+**Scope:** unit, integration, E2E, performance, and contract tests.  
+**Outcome:** reliable CI with fast feedback and clear failures.
+
+## Strategy
+- Unit tests for pure logic (table-driven where apt). 
+- Integration tests for DB/cache/queues; E2E with Playwright for web flows.
+- Contract tests from OpenAPI; smoke tests for health endpoints.
+
+## Tooling
+- Python: pytest + coverage; JS: Jest/RTL + Playwright; Go/Ruby as needed.
+- Observability in tests: record traces for flaky path analysis.
+
+## Do
+- Arrange‑Act‑Assert; parallelize; seed data via factories.
+## Don’t
+- Use brittle selectors—prefer roles/testids; avoid fixed sleeps.

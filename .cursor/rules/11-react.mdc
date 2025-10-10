@@ -1,0 +1,36 @@
+---
+alwaysApply: false
+---
+
+# Rule: React
+
+**Scope:** reusable UI components and pages.  
+**Outcome:** predictable, accessible components with minimal re-renders.
+
+## Principles
+- Functional components + hooks; custom hooks for shared logic.
+- Keep components small; prop interfaces explicit; a11y first (roles/labels).
+
+## Performance
+- Memoize expensive work (`useMemo`, `useCallback`), defer non-critical code with `lazy` + `Suspense`.
+
+## Do
+- Meaningful keys; controlled forms (React Hook Form + Zod).
+## Don’t
+- Inline heavy functions in JSX; avoid index as key.
+# Rule: React
+
+**Scope:** reusable UI components and pages.  
+**Outcome:** predictable, accessible components with minimal re-renders.
+
+## Principles
+- Functional components + hooks; custom hooks for shared logic.
+- Keep components small; prop interfaces explicit; a11y first (roles/labels).
+
+## Performance
+- Memoize expensive work (`useMemo`, `useCallback`), defer non-critical code with `lazy` + `Suspense`.
+
+## Do
+- Meaningful keys; controlled forms (React Hook Form + Zod).
+## Don’t
+- Inline heavy functions in JSX; avoid index as key.

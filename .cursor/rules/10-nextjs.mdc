@@ -1,0 +1,44 @@
+---
+alwaysApply: false
+---
+
+# Rule: Next.js (App Router)
+
+**Scope:** web app, SSR/RSC-first with progressive enhancement.  
+**Outcome:** fast, accessible UI with great Web Vitals.
+
+## Principles
+- Prefer Server Components; limit `use client` to interaction islands.
+- Route handlers for server logic; `nuqs` for URL state when needed.
+- Shadcn + Radix + Tailwind for UI; mobile-first layout.
+
+## Performance
+- Dynamic imports for non-critical UI; image optimization; caching headers.
+
+## Errors
+- `error.tsx` + `global-error.tsx`; typed server actions (next-safe-action + Zod).
+
+## Do
+- Wrap client components in `Suspense`; log errors to Sentry.
+## Don’t
+- Fetch data on the client if server can do it.
+# Rule: Next.js (App Router)
+
+**Scope:** web app, SSR/RSC-first with progressive enhancement.  
+**Outcome:** fast, accessible UI with great Web Vitals.
+
+## Principles
+- Prefer Server Components; limit `use client` to interaction islands.
+- Route handlers for server logic; `nuqs` for URL state when needed.
+- Shadcn + Radix + Tailwind for UI; mobile-first layout.
+
+## Performance
+- Dynamic imports for non-critical UI; image optimization; caching headers.
+
+## Errors
+- `error.tsx` + `global-error.tsx`; typed server actions (next-safe-action + Zod).
+
+## Do
+- Wrap client components in `Suspense`; log errors to Sentry.
+## Don’t
+- Fetch data on the client if server can do it.

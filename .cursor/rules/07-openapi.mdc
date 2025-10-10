@@ -1,0 +1,38 @@
+---
+alwaysApply: false
+---
+
+# Rule: OpenAPI (API‑First)
+
+**Scope:** API contract drives implementation & stories.  
+**Outcome:** single source of truth spec with CI validation.
+
+## Process
+- Draft OAS first; generate mocks; derive user stories & tests from spec.
+- Keep tags, components, examples, and error schemas up to date.
+
+## Acceptance
+- Every PR touching endpoints updates OAS and sample payloads.
+- CI: lint spec, generate clients/servers, publish docs.
+
+## Do
+- Use realistic examples; document auth flows and scopes.
+## Don’t
+- Merge breaking changes without version bump and changelog.
+# Rule: OpenAPI (API‑First)
+
+**Scope:** API contract drives implementation & stories.  
+**Outcome:** single source of truth spec with CI validation.
+
+## Process
+- Draft OAS first; generate mocks; derive user stories & tests from spec.
+- Keep tags, components, examples, and error schemas up to date.
+
+## Acceptance
+- Every PR touching endpoints updates OAS and sample payloads.
+- CI: lint spec, generate clients/servers, publish docs.
+
+## Do
+- Use realistic examples; document auth flows and scopes.
+## Don’t
+- Merge breaking changes without version bump and changelog.

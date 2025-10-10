@@ -1,0 +1,60 @@
+---
+alwaysApply: false
+---
+
+# Rule: Python (Data & Notebooks)
+
+**Scope:** data exploration, preprocessing, visualization, metrics, quick PoCs.  
+**Outcome:** reproducible notebooks and scripts that produce clean datasets, charts, and summary reports.
+
+## Key Principles
+- Prefer vectorized ops (pandas/numpy) to loops; keep functions pure and small.
+- PEP 8 + type hints where practical; descriptive names (`is_valid`, `n_samples`).
+- Method chaining for transforms; keep one logical step per cell in notebooks.
+- Visuals: matplotlib for control, seaborn for stat plots; label axes/titles/units.
+- Document decisions and assumptions inline (markdown cells).
+
+## Toolkit
+- `pandas`, `numpy`, `matplotlib`, `seaborn`, `jupyter`, `scikit-learn` (as needed).
+
+## Conventions
+- Start with EDA: `.info()`, `.describe()`, null checks, dtype validation.
+- Use `.loc`/`.iloc`; `groupby` for aggregations; categorical dtypes for low-cardinality strings.
+- Handle missing data explicitly (impute/remove/flag) and justify the choice.
+- Save intermediate artifacts to `/data/processed` with versioned filenames.
+
+## Do
+- Parameterize paths; seed randomness; export reusable plot helpers.
+- Profile hotspots before “optimizing”.
+
+## Don’t
+- Mix exploration and production logic in one file.
+- Rely on hidden execution order—restart kernel and run all before committing.
+# Rule: Python (Data & Notebooks)
+
+**Scope:** data exploration, preprocessing, visualization, metrics, quick PoCs.  
+**Outcome:** reproducible notebooks and scripts that produce clean datasets, charts, and summary reports.
+
+## Key Principles
+- Prefer vectorized ops (pandas/numpy) to loops; keep functions pure and small.
+- PEP 8 + type hints where practical; descriptive names (`is_valid`, `n_samples`).
+- Method chaining for transforms; keep one logical step per cell in notebooks.
+- Visuals: matplotlib for control, seaborn for stat plots; label axes/titles/units.
+- Document decisions and assumptions inline (markdown cells).
+
+## Toolkit
+- `pandas`, `numpy`, `matplotlib`, `seaborn`, `jupyter`, `scikit-learn` (as needed).
+
+## Conventions
+- Start with EDA: `.info()`, `.describe()`, null checks, dtype validation.
+- Use `.loc`/`.iloc`; `groupby` for aggregations; categorical dtypes for low-cardinality strings.
+- Handle missing data explicitly (impute/remove/flag) and justify the choice.
+- Save intermediate artifacts to `/data/processed` with versioned filenames.
+
+## Do
+- Parameterize paths; seed randomness; export reusable plot helpers.
+- Profile hotspots before “optimizing”.
+
+## Don’t
+- Mix exploration and production logic in one file.
+- Rely on hidden execution order—restart kernel and run all before committing.

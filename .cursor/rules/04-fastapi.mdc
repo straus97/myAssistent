@@ -1,0 +1,66 @@
+---
+alwaysApply: false
+---
+
+# Rule: FastAPI (Service APIs)
+
+**Scope:** JSON APIs and internal services.  
+**Outcome:** fast, typed endpoints with consistent schemas and errors.
+
+## Key Principles
+- Functional style for routes; async for I/O; RORO pattern.
+- Pydantic v2 models for input/output; exhaustive type hints.
+- Guard clauses + early returns; `HTTPException` for expected errors.
+
+## Toolkit
+- FastAPI, Pydantic v2, SQLAlchemy 2.0 or async DB drivers, Uvicorn, Redis cache.
+
+## Structure
+```
+app/
+  routers/ users.py ...
+  models/  schemas.py
+  services/
+  deps/
+  middleware/
+```
+
+## Cross‑cutting
+- Lifespan context for startup/shutdown; middleware for logging/metrics.
+- Rate limiting and CORS as needed; OpenAPI auto-docs kept accurate.
+
+## Do
+- Async DB calls; cache static/expensive reads.
+## Don’t
+- Block event loop with CPU-bound tasks—offload to workers.
+# Rule: FastAPI (Service APIs)
+
+**Scope:** JSON APIs and internal services.  
+**Outcome:** fast, typed endpoints with consistent schemas and errors.
+
+## Key Principles
+- Functional style for routes; async for I/O; RORO pattern.
+- Pydantic v2 models for input/output; exhaustive type hints.
+- Guard clauses + early returns; `HTTPException` for expected errors.
+
+## Toolkit
+- FastAPI, Pydantic v2, SQLAlchemy 2.0 or async DB drivers, Uvicorn, Redis cache.
+
+## Structure
+```
+app/
+  routers/ users.py ...
+  models/  schemas.py
+  services/
+  deps/
+  middleware/
+```
+
+## Cross‑cutting
+- Lifespan context for startup/shutdown; middleware for logging/metrics.
+- Rate limiting and CORS as needed; OpenAPI auto-docs kept accurate.
+
+## Do
+- Async DB calls; cache static/expensive reads.
+## Don’t
+- Block event loop with CPU-bound tasks—offload to workers.
