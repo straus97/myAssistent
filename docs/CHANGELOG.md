@@ -11,6 +11,77 @@
 
 ---
 
+## [2025-10-10 23:30] - Векторизованный бэктестинг
+
+### Добавлено
+
+- **Векторизованный бэктестинг (src/backtest.py):**
+  - `run_vectorized_backtest()` - быстрая симуляция через pandas (векторизация)
+  - `calculate_metrics()` - расчёт метрик: Sharpe, Sortino, Calmar, Max DD, Win Rate, Avg Win/Loss
+  - `calculate_drawdown()` - детальный анализ просадок (величина, duration, recovery time)
+  - `compare_with_benchmark()` - сравнение с buy-and-hold стратегией
+  - `extract_trades()` - список всех сделок с деталями (entry/exit time, price, PnL)
+  - `save_backtest_results()` - сохранение результатов в JSON
+  
+- **Реалистичная симуляция торговли:**
+  - Комиссии (8 bps по умолчанию, настраиваемо)
+  - Проскальзывание (5 bps по умолчанию, настраиваемо)
+  - Latency (задержка исполнения 1-2 бара, настраиваемо)
+  - Position sizing (доля капитала, 0.0-1.0)
+  
+- **API endpoints (src/routers/backtest.py):**
+  - `POST /backtest/run` - запуск бэктеста с полной конфигурацией
+  - `GET /backtest/results/{run_id}` - получить результаты по ID
+  - `GET /backtest/list` - список всех сохранённых бэктестов
+  - `GET /backtest/compare` - сравнить несколько стратегий
+  - `DELETE /backtest/results/{run_id}` - удалить результаты
+  
+- **Метрики стратегии:**
+  - Total Return (общая доходность)
+  - Sharpe Ratio (risk-adjusted returns, annualized)
+  - Sortino Ratio (downside deviation penalty)
+  - Calmar Ratio (return / max drawdown)
+  - Max Drawdown (величина, duration, recovery time)
+  - Current Drawdown (текущая просадка)
+  - Win Rate (доля прибыльных сделок)
+  - Avg Win / Avg Loss (средняя прибыль/убыток)
+  - Profit Factor (total wins / total losses)
+  - Exposure Time (доля времени в позиции)
+  - Total Trades (количество сделок)
+  
+- **Сравнение с бенчмарком:**
+  - Buy-and-hold return
+  - Buy-and-hold Sharpe
+  - Buy-and-hold Max DD
+  - Outperformance (превосходство стратегии)
+  - Beats benchmark (bool флаг)
+  
+- **Критерии успеха:**
+  - Sharpe Ratio > 1.5 (хорошая стратегия)
+  - Max Drawdown < 20% (контролируемый риск)
+  - Win Rate > 55% (чаще выигрываем)
+  - Outperforms buy-and-hold (превосходим пассивную стратегию)
+
+### Изменено
+- Подключен новый роутер `backtest` в `src/main.py`
+
+### Техническая информация
+- Векторизация через pandas/numpy для скорости
+- Сохранение результатов в `artifacts/backtest/`
+- Интеграция с `src/features.py` (78 фич)
+- Интеграция с `src/modeling.py` (загрузка XGBoost моделей)
+
+### Git
+- Коммит: `c99a93b` - feat: add vectorized backtesting engine
+
+### Следующие шаги
+- Протестировать в Swagger UI на BTC/USDT 1h (2024-01-01 → 2025-01-01)
+- Проверить метрики на реальных данных
+- Сравнить с результатами paper trading
+- Перейти к Задаче #2: RL-агент для динамического sizing
+
+---
+
 ## [2025-10-10 22:00] - Тестирование расширенных фич и подготовка к следующему чату
 
 ### Протестировано
