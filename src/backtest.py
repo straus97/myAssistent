@@ -166,7 +166,13 @@ def run_vectorized_backtest(
 
     logger.info(f"[backtest] Loading model: {model_path}")
     try:
-        model = joblib.load(model_path)
+        model_obj = joblib.load(model_path)
+        # Модель сохраняется как dict с ключами: model, feature_cols, threshold, metrics
+        if isinstance(model_obj, dict) and "model" in model_obj:
+            model = model_obj["model"]
+            logger.info(f"[backtest] Loaded model from dict (threshold: {model_obj.get('threshold', 'N/A')})")
+        else:
+            model = model_obj  # Старый формат - напрямую модель
     except Exception as e:
         logger.error(f"[backtest] Failed to load model: {e}")
         return {

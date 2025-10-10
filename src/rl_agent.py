@@ -30,6 +30,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 from .rl_env import CryptoTradingEnv, create_trading_env
 from .features import build_dataset
+import joblib
 
 logger = logging.getLogger(__name__)
 
