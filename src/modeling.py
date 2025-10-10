@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import glob
+import os
 from typing import Dict, Tuple, List
 import numpy as np
 import pandas as pd
@@ -10,6 +11,18 @@ import joblib
 import logging
 
 logger = logging.getLogger(__name__)
+
+# MLflow tracking (опционально)
+try:
+    import mlflow
+    import mlflow.sklearn
+    MLFLOW_ENABLED = os.getenv("MLFLOW_TRACKING_URI") is not None
+    if MLFLOW_ENABLED:
+        mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+        logger.info(f"[mlflow] Tracking enabled: {mlflow.get_tracking_uri()}")
+except ImportError:
+    MLFLOW_ENABLED = False
+    logger.info("[mlflow] MLflow not installed, tracking disabled")
 
 
 def time_split(df: pd.DataFrame, test_ratio: float = 0.2) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -209,6 +222,8 @@ def train_xgb_and_save(
     feature_cols: List[str],
     artifacts_dir: str = "artifacts",
     test_ratio: float = 0.2,
+    mlflow_experiment: str = "myassistent-trading",
+    mlflow_run_name: str | None = None,
 ) -> Tuple[Dict, str]:
     """Тренируем XGB, подбираем threshold по сетке, сохраняем .pkl и метрики."""
     Path(artifacts_dir).mkdir(exist_ok=True)
@@ -236,6 +251,28 @@ def train_xgb_and_save(
     X_test = df_test[use_cols].values
     y_test = df_test["y"].values
     fut = df_test["future_ret"].values
+
+    # ============ MLflow Tracking Start ============
+    if MLFLOW_ENABLED:
+        try:
+            mlflow.set_experiment(mlflow_experiment)
+            mlflow.start_run(run_name=mlflow_run_name)
+            
+            # Log hyperparameters
+            mlflow.log_params({
+                "n_estimators": 300,
+                "max_depth": 4,
+                "learning_rate": 0.05,
+                "subsample": 0.8,
+                "colsample_bytree": 0.8,
+                "reg_lambda": 1.0,
+                "n_train": len(df_train),
+                "n_test": len(df_test),
+                "n_features": len(use_cols),
+                "test_ratio": test_ratio,
+            })
+        except Exception as e:
+            logger.warning(f"[mlflow] Failed to start run: {e}")
 
     model = XGBClassifier(
         n_estimators=300,
@@ -286,6 +323,40 @@ def train_xgb_and_save(
         json.dump(metrics, f, ensure_ascii=False, indent=2)
     with open(Path(artifacts_dir) / "features.json", "w", encoding="utf-8") as f:
         json.dump({"features": use_cols}, f, ensure_ascii=False, indent=2)
+
+    # ============ MLflow Tracking End ============
+    if MLFLOW_ENABLED:
+        try:
+            # Log metrics
+            mlflow.log_metrics({
+                "accuracy": metrics["accuracy"],
+                "roc_auc": metrics.get("roc_auc") or 0,
+                "threshold": metrics["threshold"],
+                "total_return": metrics["total_return"],
+                "sharpe_like": metrics.get("sharpe_like") or 0,
+            })
+            
+            # Log model
+            mlflow.sklearn.log_model(model, "model")
+            
+            # Log artifacts
+            mlflow.log_artifact(str(model_path), "model_artifacts")
+            mlflow.log_artifact(str(Path(artifacts_dir) / "metrics.json"), "metrics")
+            mlflow.log_artifact(str(Path(artifacts_dir) / "features.json"), "features")
+            
+            # Log feature importance
+            if hasattr(model, "feature_importances_"):
+                importance_dict = dict(zip(use_cols, model.feature_importances_.tolist()))
+                mlflow.log_dict(importance_dict, "feature_importance.json")
+            
+            mlflow.end_run()
+            logger.info("[mlflow] Run logged successfully")
+        except Exception as e:
+            logger.warning(f"[mlflow] Failed to log run: {e}")
+            try:
+                mlflow.end_run()
+            except:
+                pass
 
     return metrics, str(model_path.resolve())
 

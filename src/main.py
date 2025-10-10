@@ -75,7 +75,7 @@ except Exception:
 
 app = _FastAPI(
     title="MyAssistent API",
-    version="0.8",
+    version="0.9",
     docs_url="/docs" if ENABLE_DOCS else None,
     redoc_url="/redoc" if ENABLE_DOCS else None,
     swagger_ui_parameters={"persistAuthorization": True, "displayRequestDuration": True},
@@ -86,6 +86,34 @@ app = _FastAPI(
         "Ошибки: raise HTTPException с detail={'status':'error','code':..., 'detail':...}."
     ),
 )
+
+# ============== Prometheus Metrics ==============
+
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    
+    instrumentator = Instrumentator(
+        should_group_status_codes=False,
+        should_ignore_untemplated=True,
+        should_respect_env_var=True,
+        should_instrument_requests_inprogress=True,
+        excluded_handlers=["/metrics"],
+        env_var_name="ENABLE_METRICS",
+        inprogress_name="fastapi_inprogress",
+        inprogress_labels=True,
+    )
+    
+    instrumentator.instrument(app)
+    
+    @app.on_event("startup")
+    async def _startup_metrics():
+        instrumentator.expose(app, endpoint="/metrics", include_in_schema=True)
+    
+    print("[metrics] Prometheus metrics enabled at /metrics")
+except ImportError:
+    print("[metrics] prometheus-fastapi-instrumentator not installed, metrics disabled")
+except Exception as e:
+    print(f"[metrics] Error enabling Prometheus metrics: {e}")
 
 
 # ============== CORS Middleware ==============

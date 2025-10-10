@@ -1,17 +1,34 @@
 # 🤖 MyAssistent — Автономный ML-Трейдер для Bybit
 
+> **Version 0.9** — Production-ready architecture with PostgreSQL, MLflow, Next.js UI, Prometheus & Grafana
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green.svg)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
+[![MLflow](https://img.shields.io/badge/MLflow-2.9-blue.svg)](https://mlflow.org/)
 [![License](https://img.shields.io/badge/license-Private-red.svg)]()
 
 Локальный торговый бот с машинным обучением для криптовалютной биржи Bybit. Полный цикл: от сбора данных до генерации торговых сигналов с интеллектуальным риск-менеджментом.
 
+## 🚀 Что нового в версии 0.9
+
+- ✅ **PostgreSQL** — миграция с SQLite для production-ready БД
+- ✅ **MLflow Tracking** — воспроизводимость ML экспериментов
+- ✅ **Next.js UI** — современный фронтенд с real-time updates
+- ✅ **Prometheus + Grafana** — мониторинг метрик в реальном времени
+- ✅ **Comprehensive документация** — гайды для новичков и продакшна
+
 ## ⚡ Быстрый Старт
 
+**📖 Подробное руководство:** [docs/QUICK_START.md](docs/QUICK_START.md)
+
 ### Требования
-- **Windows 10/11**
+- **Windows 10/11** (или Linux/macOS)
 - **Python 3.11+** (64-bit)
-- **Git** (для клонирования репо)
+- **Node.js 18+** (для Next.js UI)
+- **Docker Desktop** (для PostgreSQL, MLflow, Grafana)
+- **Git**
 
 ### Установка
 
