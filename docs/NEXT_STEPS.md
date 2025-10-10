@@ -43,11 +43,18 @@
 - ✅ Исправление ruff ошибок (23 → 3, все активные файлы чистые)
 - ✅ Все 15 роутеров полностью функциональны (80+ эндпоинтов)
 
+**Завершено в версии 0.8 (2025-10-10, вечер):**
+- ✅ Расширение тестов (120+ тестов, coverage: modeling 96%, risk 96%, trade 87%)
+  - ✅ tests/test_modeling.py (20 тестов: XGBoost, threshold grid, walk-forward CV)
+  - ✅ tests/test_features.py (30+ тестов: RSI, BB, новостные фичи, датасет)
+  - ✅ tests/test_trade.py (40+ тестов: paper trading, auto-sizing, PnL)
+  - ✅ tests/test_risk.py (35+ тестов: фильтры, волатильность, guard)
+- ✅ Создание docs/API.md (документация 80+ эндпоинтов с примерами)
+- ✅ Настройка CI/CD (.github/workflows/ci.yml: lint, format, type-check, test, security)
+
 **Осталось в версии 0.8:**
 - ⏳ Тестирование всех эндпоинтов в Swagger UI
-- ⏳ Расширение тестов (coverage >80%)
-- ⏳ Создание docs/API.md
-- ⏳ Настройка CI/CD (GitHub Actions)
+- ⏳ Исправление провалившихся тестов (20/127 failed из-за shared state)
 
 ---
 

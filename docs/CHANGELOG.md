@@ -9,7 +9,29 @@
 
 ## [Unreleased]
 
-### Добавлено
+### Добавлено (2025-10-10, вечер)
+- **Comprehensive тесты (120+ тестов, версия 0.8):**
+  - `tests/test_modeling.py` — 20 тестов для ML-пайплайна (XGBoost, threshold grid, walk-forward CV)
+  - `tests/test_features.py` — 30+ тестов для фичей (RSI, Bollinger Bands, новостные агрегаты, датасет)
+  - `tests/test_trade.py` — 40+ тестов для paper trading (sizing, PnL, позиции, ордера)
+  - `tests/test_risk.py` — 35+ тестов для риск-менеджмента (фильтры, EMA, волатильность, policy)
+  - **Coverage:** modeling.py 96%, risk.py 96%, trade.py 87%, features.py 63%
+  - **Результаты:** 107/127 тестов passed (84% success rate)
+
+- **Документация API (`docs/API.md`):**
+  - Comprehensive описание 80+ эндпоинтов
+  - Примеры запросов/ответов для всех групп (News, Prices, Models, Signals, Trade, etc.)
+  - Полный цикл использования с curl примерами
+  - Документация авторизации, форматов ответов, таймфреймов
+
+- **CI/CD Pipeline (`.github/workflows/ci.yml`):**
+  - Lint & Format Check (ruff, black)
+  - Type Check (mypy)
+  - Tests & Coverage (pytest + codecov integration)
+  - Security Scan (bandit)
+  - Dependency Audit (pip-audit)
+  - Автоматические артефакты и summary reports
+
 - **Декомпозиция main.py на роутеры** (Часть 1/2, commit ce66572):
   - `src/dependencies.py` — общие зависимости (get_db, require_api_key, ok, err)
   - `src/utils.py` — утилиты (_now_utc, _atr_pct, _volatility_guard, _policy_vol_thr и др.)
