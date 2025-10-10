@@ -11,6 +11,76 @@
 
 ---
 
+## [0.9.0] — 2025-10-10
+
+### Добавлено
+
+- **Миграция на PostgreSQL (критично для продакшна):**
+  - `docker-compose.yml` — PostgreSQL 16 + pgbouncer + pgAdmin
+  - `init_db.sql` — настройки производительности PostgreSQL
+  - `scripts/migrate_sqlite_to_postgres.py` — автоматический скрипт миграции данных
+  - Поддержка connection pooling (DB_POOL_SIZE, DB_MAX_OVERFLOW)
+  - Режим pgbouncer для high-load (USE_PGBOUNCER=true)
+
+- **Alembic миграция для PostgreSQL оптимизаций:**
+  - `alembic/versions/45780899b185_add_postgresql_indexes_and_partitioning.py`
+  - GIN индексы для полнотекстового поиска (title, summary через pg_trgm)
+  - Составные индексы: articles(source, published_at), prices(symbol, ts)
+  - Индексы для временных запросов: signal_events(created_at), model_runs(symbol, created_at)
+  - VACUUM ANALYZE для обновления статистики
+  - Опциональное партиционирование таблицы prices (закомментировано)
+
+- **Обновление конфигурации:**
+  - `src/config.py` — новые параметры:
+    - `USE_PGBOUNCER`, `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_RECYCLE`
+    - Property методы: `is_postgres`, `is_sqlite`
+  - `src/db.py` — динамическая настройка connection pool в зависимости от БД
+  - `env.example.txt` — примеры для PostgreSQL и pgbouncer
+
+- **Документация для новичков:**
+  - `docs/BEGINNER_GUIDE.md` — пошаговое руководство настройки системы:
+    - Настройка Telegram уведомлений
+    - Настройка риск-политики (консервативные параметры для новичков)
+    - Первое обучение модели (загрузка данных, датасет, тренировка)
+    - Мониторинг и интерпретация сигналов
+    - Автоматизация (включение auto-trading)
+    - Kill Switch (аварийное отключение)
+  
+  - `docs/PRODUCTION_READINESS.md` — чеклист готовности к реальной торговле:
+    - Требования к версии 0.9+ (PostgreSQL, MLflow, Prometheus, Sentry)
+    - Минимальные метрики paper trading (3 месяца, Sharpe > 1.5, DD < 15%)
+    - Миграция на PostgreSQL (обязательно для продакшна)
+    - Мониторинг и алертинг (Grafana, Prometheus)
+    - Инфраструктура (VPS, Docker, backups)
+    - Testnet проверка (Bybit, 100+ сделок)
+    - Live trading checklist (минимальный капитал, scaling)
+    - **Roadmap к profitable trading: 8-12 месяцев**
+
+  - `docs/POSTGRESQL_MIGRATION.md` — пошаговое руководство миграции:
+    - Зачем мигрировать (проблемы SQLite vs преимущества PostgreSQL)
+    - Подготовка (backup, Docker установка)
+    - Запуск PostgreSQL через docker-compose
+    - Миграция данных (Alembic + скрипт)
+    - Проверка (индексы, производительность)
+    - Откат (если что-то пошло не так)
+
+### Изменено
+
+- **assistant.db удалён из git tracking:**
+  - Файл добавлен в .gitignore (уже был)
+  - `git rm --cached assistant.db` выполнено
+  - Commit: "chore: remove assistant.db from git tracking"
+  - Причина: размер 51.94 MB > рекомендуемого лимита 50 MB
+
+- **src/config.py:** Добавлена поддержка PostgreSQL с динамическим connection pooling
+- **src/db.py:** Обновлено создание engine для SQLite и PostgreSQL (разные параметры)
+
+### Исправлено
+
+- Warning: assistant.db в git (решено удалением из tracking)
+
+---
+
 ## [0.8.0] — 2025-10-10
 
 ### Добавлено

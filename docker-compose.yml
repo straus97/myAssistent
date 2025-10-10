@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: myassistent_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: myassistent
+      POSTGRES_USER: myassistent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myassistent -d myassistent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - myassistent_network
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.21.0
+    container_name: myassistent_pgbouncer
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://myassistent:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/myassistent
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 100
+      DEFAULT_POOL_SIZE: 20
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      MAX_DB_CONNECTIONS: 50
+      SERVER_IDLE_TIMEOUT: 600
+    ports:
+      - "6432:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - myassistent_network
+
+  # Опционально: pgAdmin для визуального управления БД
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: myassistent_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@myassistent.local
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - myassistent_network
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  myassistent_network:
+    driver: bridge
+

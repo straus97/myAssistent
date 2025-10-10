@@ -18,6 +18,10 @@ class Settings:
     ENV: str
     API_BASE_URL: str
     DATABASE_URL: str
+    USE_PGBOUNCER: bool
+    DB_POOL_SIZE: int
+    DB_MAX_OVERFLOW: int
+    DB_POOL_RECYCLE: int
     LOG_DIR: Path
     ARTIFACTS_DIR: Path
     TELEGRAM_BOT_TOKEN: str | None
@@ -30,8 +34,20 @@ class Settings:
     def __init__(self):
         self.ENV = os.getenv("ENV", "dev")
         self.API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
-        # Unified database: используем только assistant.db для всех данных
-        self.DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{PROJECT_ROOT/'assistant.db'}")
+        
+        # Database URL: поддержка SQLite и PostgreSQL
+        # SQLite (по умолчанию): sqlite:///assistant.db
+        # PostgreSQL: postgresql://user:pass@localhost:5432/myassistent
+        # PostgreSQL + pgbouncer: postgresql://user:pass@localhost:6432/myassistent
+        default_db_url = f"sqlite:///{PROJECT_ROOT/'assistant.db'}"
+        self.DATABASE_URL = os.getenv("DATABASE_URL", default_db_url)
+        
+        # PostgreSQL connection pooling настройки
+        self.USE_PGBOUNCER = os.getenv("USE_PGBOUNCER", "false").lower() == "true"
+        self.DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "20"))
+        self.DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+        self.DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "3600"))  # 1 час
+        
         self.LOG_DIR = Path(os.getenv("LOG_DIR", PROJECT_ROOT / "logs"))
         self.ARTIFACTS_DIR = Path(os.getenv("ARTIFACTS_DIR", PROJECT_ROOT / "artifacts"))
         self.TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or None
@@ -44,6 +60,16 @@ class Settings:
         # гарантируем существование папок
         self.LOG_DIR.mkdir(parents=True, exist_ok=True)
         self.ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    
+    @property
+    def is_postgres(self) -> bool:
+        """Проверка, используется ли PostgreSQL"""
+        return self.DATABASE_URL.startswith("postgresql")
+    
+    @property
+    def is_sqlite(self) -> bool:
+        """Проверка, используется ли SQLite"""
+        return self.DATABASE_URL.startswith("sqlite")
 
 
 @lru_cache()

@@ -21,11 +21,34 @@ from urllib.parse import urlparse
 DATABASE_URL = settings.DATABASE_URL
 url = urlparse(DATABASE_URL)
 is_sqlite = url.scheme.startswith("sqlite")
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if is_sqlite else {},
-    pool_pre_ping=True,
-)
+
+# Настройка connection pool в зависимости от БД
+if is_sqlite:
+    # SQLite: check_same_thread для многопоточности
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        pool_pre_ping=True,
+    )
+else:
+    # PostgreSQL: connection pooling
+    pool_params = {
+        "pool_size": settings.DB_POOL_SIZE,
+        "max_overflow": settings.DB_MAX_OVERFLOW,
+        "pool_recycle": settings.DB_POOL_RECYCLE,
+        "pool_pre_ping": True,
+        "echo_pool": settings.ENV == "dev",  # debug pooling в dev
+    }
+    
+    # Если используем pgbouncer, отключаем pool_size (pgbouncer делает pooling сам)
+    if settings.USE_PGBOUNCER:
+        pool_params = {
+            "poolclass": None,  # NullPool - без pooling на стороне SQLAlchemy
+            "pool_pre_ping": True,
+        }
+    
+    engine = create_engine(DATABASE_URL, **pool_params)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
