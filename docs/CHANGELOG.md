@@ -10,6 +10,31 @@
 ## [Unreleased]
 
 ### Добавлено
+- **Pre-commit хуки** (`.pre-commit-config.yaml`):
+  - Ruff (линтер с автоисправлением)
+  - Black (форматтер, line-length=120)
+  - Trailing whitespace, end-of-file-fixer
+  - Check large files (>1MB), merge conflicts, YAML/JSON
+  - Detect secrets (API keys, passwords)
+  - Prettier для JSON/YAML/Markdown
+- **Документация для следующих шагов:**
+  - `docs/NEXT_STEPS.md` — детальный план задач для новых чатов
+  - Задача #1: Декомпозиция main.py на роутеры (пошаговый план)
+  - Задача #2: Расширение тестов (>80% coverage)
+  - Задача #3: Исправление ruff ошибок
+  - Задача #4: CI/CD pipeline (GitHub Actions)
+  - Задача #5: Миграция на PostgreSQL
+- `pre-commit>=3.6.0` в requirements.txt
+- `.secrets.baseline` для detect-secrets
+
+### Изменено
+- Обновлена память о структуре проекта (версия 0.7 → 0.8)
+
+---
+
+## [0.7.1] — 2025-10-10
+
+### Добавлено
 - Документация проекта:
   - `docs/PROJECT_OVERVIEW.md` — подробный обзор архитектуры
   - `docs/ROADMAP.md` — дорожная карта развития
