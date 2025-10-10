@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text as _sa_text
 
 from src.dependencies import get_db
-from src.db import SessionLocal
 
 
 router = APIRouter(tags=["Debug"])

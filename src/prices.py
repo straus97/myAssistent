@@ -37,7 +37,7 @@ def _insert_prices(
     """rows: list of (ts_ms, o, h, l, c, v)"""
     added = 0
     batch = 0
-    for ts, o, h, l, c, v in rows:
+    for ts, o, h, low, c, v in rows:
         db.add(
             Price(
                 exchange=exchange,
@@ -46,7 +46,7 @@ def _insert_prices(
                 ts=int(ts),
                 open=float(o),
                 high=float(h),
-                low=float(l),
+                low=float(low),
                 close=float(c),
                 volume=float(v),
             )
@@ -77,8 +77,8 @@ def _fetch_binance(symbol: str, timeframe: str, limit: int) -> List[Tuple[int, f
     out = []
     for row in data:
         ts = int(row[0])  # open time (ms)
-        o, h, l, c, v = map(float, [row[1], row[2], row[3], row[4], row[5]])
-        out.append((ts, o, h, l, c, v))
+        o, h, low, c, v = map(float, [row[1], row[2], row[3], row[4], row[5]])
+        out.append((ts, o, h, low, c, v))
     return out
 
 
@@ -100,8 +100,8 @@ def _fetch_bybit(symbol: str, timeframe: str, limit: int) -> List[Tuple[int, flo
     out = []
     for row in reversed(lst):  # от старых к новым
         ts = _ms(int(row[0]))
-        o, h, l, c, v = map(float, [row[1], row[2], row[3], row[4], row[5]])
-        out.append((ts, o, h, l, c, v))
+        o, h, low, c, v = map(float, [row[1], row[2], row[3], row[4], row[5]])
+        out.append((ts, o, h, low, c, v))
     return out[-limit:]
 
 

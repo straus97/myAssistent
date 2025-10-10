@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from src.dependencies import get_db, require_api_key, ok, ok_data
+from src.dependencies import get_db, require_api_key, ok_data
 from src.db import Article, ArticleAnnotation, SessionLocal
 from src.news import fetch_and_store
 from src.analysis import analyze_new_articles

@@ -183,7 +183,7 @@ def news_stats(db: Session, hours: int = 24) -> Dict[str, Any]:
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     total = db.query(Article).count()
-    total_24h = db.query(Article).filter(Article.published_at != None, Article.published_at >= since).count()
+    total_24h = db.query(Article).filter(Article.published_at.is_not(None), Article.published_at >= since).count()
 
     ann_rows = db.query(ArticleAnnotation).all()
     annotated_ids = {a.article_id for a in ann_rows}

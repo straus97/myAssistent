@@ -15,7 +15,6 @@ from src.features import build_dataset
 from src.modeling import train_xgb_and_save
 from src.model_policy import load_model_policy, save_model_policy
 from src.model_registry import (
-    load_model_for,
     set_active_model,
     get_active_model_path,
     choose_latest_model_path,

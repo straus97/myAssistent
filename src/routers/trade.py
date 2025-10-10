@@ -5,16 +5,14 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Literal, Optional, Any
-from datetime import datetime
+from typing import Literal, Optional
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from src.dependencies import get_db, require_api_key, ok, err
 from src.db import PaperPosition, PaperOrder, PaperTrade
 from src.trade import (
-    paper_open_buy_auto,
     paper_close_pair,
     paper_get_positions,
     paper_get_equity,

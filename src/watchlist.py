@@ -83,7 +83,7 @@ def discover_pairs(
     for ex in exchanges:
         try:
             ex_obj = getattr(ccxt, ex)()
-            markets = ex_obj.load_markets()
+            ex_obj.load_markets()
             # получаем tickers с объёмом за 24ч
             tickers = ex_obj.fetch_tickers()
         except Exception:

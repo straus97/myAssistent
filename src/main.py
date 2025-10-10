@@ -4,12 +4,10 @@ MyAssistent API - Автономный торговый бот с ML для Bybi
 """
 from __future__ import annotations
 import os
-import sys
 import json
 from pathlib import Path
-from datetime import datetime, timezone as _tz
-from fastapi import FastAPI, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi import Depends
+from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -49,9 +47,9 @@ from src.prices import fetch_and_store_prices
 from src.features import build_dataset
 from src.reports import build_daily_report
 from src.watchlist import pairs_for_jobs, discover_pairs
-from src.modeling import train_xgb_and_save, load_latest_model
+from src.modeling import train_xgb_and_save
 from src.model_policy import load_model_policy
-from src.model_registry import get_active_model_path, set_active_model, choose_latest_model_path
+from src.model_registry import get_active_model_path, set_active_model
 from src.risk import load_policy
 
 
@@ -431,7 +429,7 @@ def job_news_radar():
                 db,
             )
             if res.get("status") == "ok" and res.get("spike"):
-                print(f"[scheduler] news_radar: SPIKE detected")
+                print("[scheduler] news_radar: SPIKE detected")
         except Exception as e:
             print(f"[scheduler] news_radar error: {e}")
 
