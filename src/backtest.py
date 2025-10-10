@@ -255,6 +255,10 @@ def run_vectorized_backtest(
     df["strategy_ret_net"] = df["strategy_ret_net"] * position_size
 
     # 6. Расчёт equity curve
+    # Заполняем первое значение (NaN из-за pct_change) нулём
+    df["strategy_ret_net"] = df["strategy_ret_net"].fillna(0)
+    df["ret"] = df["ret"].fillna(0)
+    
     df["equity"] = initial_capital * (1 + df["strategy_ret_net"]).cumprod()
     df["benchmark_equity"] = initial_capital * (1 + df["ret"]).cumprod()
 
