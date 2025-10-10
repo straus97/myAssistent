@@ -91,12 +91,11 @@ def run_vectorized_backtest(
     # 1. Построение датасета с фичами
     logger.info("[backtest] Building dataset with features...")
     try:
-        df = build_dataset(
+        df, feature_cols = build_dataset(
             db=db,
             exchange=exchange,
             symbol=symbol,
             timeframe=timeframe,
-            hours_back=None,  # Загружаем все данные
         )
     except Exception as e:
         logger.error(f"[backtest] Failed to build dataset: {e}")

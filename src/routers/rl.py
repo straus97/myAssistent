@@ -338,12 +338,11 @@ def evaluate_rl_endpoint(
         model = load_rl_agent(str(model_path))
         
         # Построение test датасета
-        df = build_dataset(
+        df, feature_cols = build_dataset(
             db=db,
             exchange=exchange,
             symbol=symbol,
             timeframe=timeframe,
-            hours_back=None,
         )
         
         start = pd.to_datetime(start_date)

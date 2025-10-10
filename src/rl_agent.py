@@ -107,12 +107,11 @@ def train_rl_agent(
     # 1. Построение датасета
     logger.info("[rl_agent] Building dataset with features...")
     try:
-        df = build_dataset(
+        df, feature_cols = build_dataset(
             db=db,
             exchange=exchange,
             symbol=symbol,
             timeframe=timeframe,
-            hours_back=None,
         )
     except Exception as e:
         logger.error(f"[rl_agent] Failed to build dataset: {e}")
