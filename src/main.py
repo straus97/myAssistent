@@ -33,6 +33,7 @@ from src.routers import (
     backup,
     db_admin,
     debug,
+    backtest,
 )
 
 # Импорты зависимостей и утилит
@@ -165,6 +166,7 @@ app.include_router(journal.router)
 app.include_router(backup.router)
 app.include_router(db_admin.router)
 app.include_router(debug.router)
+app.include_router(backtest.router)
 
 
 # ============== Корневые Эндпоинты ==============
