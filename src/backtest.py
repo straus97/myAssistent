@@ -120,14 +120,23 @@ def run_vectorized_backtest(
 
     # Фильтрация по датам
     df = df.sort_values("timestamp").reset_index(drop=True)
+    
+    # Логируем доступный диапазон данных
+    logger.info(f"[backtest] Available data range: {df['timestamp'].min()} → {df['timestamp'].max()}")
+    
     start = pd.to_datetime(start_date).tz_localize('UTC')
     end = pd.to_datetime(end_date).tz_localize('UTC')
+    
+    logger.info(f"[backtest] Requested date range: {start} → {end}")
+    
     df = df[(df["timestamp"] >= start) & (df["timestamp"] <= end)].copy()
+    
+    logger.info(f"[backtest] After filtering: {len(df)} rows")
 
     if len(df) < 10:
         return {
             "success": False,
-            "error": f"Insufficient data ({len(df)} rows)",
+            "error": f"Insufficient data ({len(df)} rows). Available data: {df['timestamp'].min() if not df.empty else 'N/A'} → {df['timestamp'].max() if not df.empty else 'N/A'}. Requested: {start_date} → {end_date}",
             "equity_curve": None,
             "metrics": None,
             "trades": None,
