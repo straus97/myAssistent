@@ -18,8 +18,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from ..db import get_db
-from ..dependencies import require_api_key
+from ..dependencies import require_api_key, get_db
 from ..rl_agent import (
     train_rl_agent,
     load_rl_agent,

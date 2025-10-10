@@ -20,7 +20,7 @@ st.title("🧠 My Assistant — Dashboard")
 
 # ---- SIDEBAR ----
 st.sidebar.header("Параметры")
-exchange = st.sidebar.selectbox("Биржа", ["binance", "bybit"])
+exchange = st.sidebar.selectbox("Биржа", ["bybit", "binance"])
 symbol = st.sidebar.selectbox("Пара", ["BTC/USDT", "ETH/USDT"])
 timeframe = st.sidebar.selectbox("Таймфрейм", ["15m", "1h", "4h", "1d"])
 limit_bars = st.sidebar.slider("Сколько свечей загрузить", 200, 2000, 500, step=100)

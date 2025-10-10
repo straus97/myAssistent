@@ -16,8 +16,7 @@ import json
 from pathlib import Path
 import logging
 
-from ..db import get_db
-from ..dependencies import require_api_key
+from ..dependencies import require_api_key, get_db
 from ..backtest import run_vectorized_backtest, save_backtest_results
 
 logger = logging.getLogger(__name__)
