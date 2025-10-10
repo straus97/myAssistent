@@ -122,8 +122,8 @@ def train_rl_agent(
     
     # Фильтрация по датам
     df = df.sort_values("timestamp").reset_index(drop=True)
-    start = pd.to_datetime(start_date)
-    end = pd.to_datetime(end_date)
+    start = pd.to_datetime(start_date).tz_localize('UTC')
+    end = pd.to_datetime(end_date).tz_localize('UTC')
     df = df[(df["timestamp"] >= start) & (df["timestamp"] <= end)].copy()
     
     if len(df) < 100:

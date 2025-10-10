@@ -345,8 +345,8 @@ def evaluate_rl_endpoint(
             timeframe=timeframe,
         )
         
-        start = pd.to_datetime(start_date)
-        end = pd.to_datetime(end_date)
+        start = pd.to_datetime(start_date).tz_localize('UTC')
+        end = pd.to_datetime(end_date).tz_localize('UTC')
         df = df[(df["timestamp"] >= start) & (df["timestamp"] <= end)].copy()
         
         if len(df) < 100:
