@@ -51,9 +51,25 @@
 - Обновлена память о структуре проекта (версия 0.7 → 0.8)
 - Обновлён `docs/NEXT_STEPS.md` с прогрессом декомпозиции
 
-### В работе (Часть 2/2)
-- Обновление `main.py` (подключение роутеров, удаление перенесённого кода)
-- Завершение реализации заглушек в trade, automation, ui, journal, backup
+### Изменено (2025-10-10, commit 9484232)
+- **Декомпозиция main.py завершена (Часть 2/2)**:
+  - main.py сокращён с 4716 строк до 780 строк (~84% reduction)
+  - Подключены все 15 роутеров через `app.include_router()`
+  - Удалены дублирующиеся функции:
+    - `ok()`, `err()`, `require_api_key()` → перенесены в `src/dependencies.py`
+    - `_now_utc()`, `_atr_pct()`, `_volatility_guard()` и др. → перенесены в `src/utils.py`
+  - Оставлены только:
+    - Создание FastAPI app
+    - CORS middleware
+    - Artifacts static files
+    - APScheduler с 12 job функциями
+    - Startup/shutdown events (scheduler lock, indexes, cleanup)
+    - Корневые эндпоинты (/, /ping, /hello, /time, /memory/*)
+  - Создан бэкап: `src/main_old.py` (4716 lines)
+  - Исправлена ошибка импорта `Field` из pydantic в signals.py
+
+### В работе (Часть 3/3)
+- Завершение заглушек в роутерах: automation, ui, journal, backup, trade (manual commands)
 - Тестирование всех эндпоинтов в Swagger UI
 
 ---
