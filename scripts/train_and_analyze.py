@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 # Добавляем корень проекта в PYTHONPATH
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.db import get_db, init_db
+from src.dependencies import get_db
+from src.db import SessionLocal
 from src.features import build_dataset
 from src.modeling import train_xgb_and_save, load_latest_model
 import joblib
@@ -213,8 +214,7 @@ def main():
     
     # Инициализация БД
     print("🔄 Подключение к БД...")
-    init_db()
-    db = next(get_db())
+    db = SessionLocal()
     
     try:
         # Построение датасета
