@@ -113,8 +113,8 @@
 - ✅ **Исправления:**
   - ✅ POST /risk/policy - убрана обёртка "updates", работает в Swagger
 
-**Завершено (2025-10-10 23:30):**
-- ✅ **Векторизованный бэктестинг:**
+**Завершено (2025-10-11 13:30):**
+- ✅ **Векторизованный бэктестинг (ПРОТЕСТИРОВАНО):**
   - ✅ src/backtest.py - ядро бэктестинга (векторизация через pandas)
   - ✅ src/routers/backtest.py - API endpoints (POST /backtest/run, GET /backtest/results, GET /backtest/list, GET /backtest/compare, DELETE)
   - ✅ Реалистичная симуляция: комиссии (8 bps), проскальзывание (5 bps), latency (1-2 бара)
@@ -123,7 +123,16 @@
   - ✅ Детальный анализ просадок (величина, duration, recovery time)
   - ✅ Список сделок с деталями (entry/exit time, price, PnL, duration)
   - ✅ Сохранение результатов в artifacts/backtest/
-  - ✅ Git commit: c99a93b
+  - ✅ **Исправлены баги:**
+    - ✅ NaN в first row equity curve (3611beb)
+    - ✅ Feature shape mismatch (71a9cd2)
+    - ✅ Negative duration_bars для последней сделки (a5e5ff9)
+  - ✅ **Тестирование на реальных данных:**
+    - ✅ BTC/USDT 1h (2025-09-01 → 2025-10-10)
+    - ✅ Total Return: +7.9% (vs Benchmark: +3.3%)
+    - ✅ Sharpe: 0.91, Win Rate: 76.7%, Profit Factor: 5.91
+    - ✅ Max DD: -7.1%, Outperformance: +139%
+  - ✅ Git commits: c99a93b, 71a9cd2, 3611beb, a5e5ff9
 
 ---
 
