@@ -10,7 +10,6 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')  # Для сохранения графиков без GUI
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 # Добавляем корень проекта в PYTHONPATH
 sys.path.insert(0, str(Path(__file__).parent.parent))
