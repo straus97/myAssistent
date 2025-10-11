@@ -28,15 +28,27 @@ set PYTHONIOENCODING=utf-8
 set PYTHONUTF8=1
 
 REM --- MyAssistant config ---
-set API_KEY=803a29e730b47a595e38836abf8c19d7ef325b5790993e17d25515a47a3fc8b6
-REM Unified database: используем assistant.db для всех данных
-set DATABASE_URL=sqlite:///./assistant.db
-set TRADE_MODE=live
-set OFFLINE_DOCS=1
-set ENABLE_DOCS=1
-set ENABLE_METRICS=true
-REM опционально, чтобы /artifacts открывались без заголовка (только локально!):
-REM set PUBLIC_ARTIFACTS=1
+REM Читаем настройки из .env файла (если существует)
+if exist .env (
+    echo [*] Загружаю настройки из .env
+    for /f "usebackq tokens=1,* delims==" %%a in (.env) do (
+        set "line=%%a"
+        if not "!line:~0,1!"=="#" (
+            set "%%a=%%b"
+        )
+    )
+) else (
+    echo [!] Файл .env не найден. Запусти: python setup_env.py
+    pause
+    exit /b 1
+)
+
+REM Fallback значения если что-то не указано
+if not defined API_KEY set API_KEY=dev_api_key_for_testing_only
+if not defined DATABASE_URL set DATABASE_URL=sqlite:///./assistant.db
+if not defined TRADE_MODE set TRADE_MODE=live
+if not defined ENABLE_METRICS set ENABLE_METRICS=true
+if not defined MLFLOW_TRACKING_URI set MLFLOW_TRACKING_URI=http://localhost:5000
 
 echo [*] Запускаю backend → http://127.0.0.1:8000
 start "backend" /D "%CD%" ".\.venv\Scripts\python.exe" -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --log-level debug >> logs\server.log 2>&1
