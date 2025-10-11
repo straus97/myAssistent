@@ -124,9 +124,9 @@ def trade_positions(db: Session = Depends(get_db), _=Depends(require_api_key)):
 
 
 @router.get("/equity")
-def trade_equity(db: Session = Depends(get_db), _=Depends(require_api_key)):
+def trade_equity(_=Depends(require_api_key)):
     """Получить текущий equity (cash + positions)"""
-    return ok(equity=paper_get_equity(db))
+    return ok(equity=paper_get_equity())
 
 
 @router.get("/equity/history")
