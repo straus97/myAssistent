@@ -208,6 +208,38 @@
     - ✅ GET /mlflow/models/{name}/compare - сравнить версии
   - ✅ Подключён роутер в src/main.py
 
+**Завершено (2025-10-11 ночь):**
+- ✅ **БЕСПЛАТНЫЕ API для On-chain, Macro, Social данных (БЕЗ API KEYS!):**
+  - ✅ **On-chain (13 фичей, +4 новых):**
+    - ✅ CoinGecko API (market cap, volume, price changes) - БЕЗ КЛЮЧА!
+    - ✅ Blockchain.info (hash rate, difficulty, tx count) - БЕЗ КЛЮЧА!
+    - ✅ CoinGlass (funding rate, liquidations) - БЕЗ КЛЮЧА!
+    - ✅ Тестирование: Market cap $2.2T, Volume $135B ✅
+  
+  - ✅ **Macro (9 фичей, +2 новых):**
+    - ✅ Fear & Greed Index (Alternative.me) - БЕЗ КЛЮЧА!
+    - ✅ Yahoo Finance (DXY, Gold, Oil) - БЕЗ КЛЮЧА!
+    - ✅ FRED API поддержка (опционально, с fallback)
+    - ✅ Тестирование: Fear & Greed = 27 (Fear) ✅
+  
+  - ✅ **Social (6 фичей, +1 новая):**
+    - ✅ Reddit public JSON API (НЕ требует OAuth!)
+    - ✅ Google Trends через pytrends - БЕЗ КЛЮЧА!
+    - ✅ Twitter proxy (Reddit как fallback)
+    - ✅ Тестирование: 30 постов, sentiment 1.0, Trends 60/100 ✅
+  
+  - ✅ **Инфраструктура:**
+    - ✅ MLflow timeout увеличен до 7200s (2 часа)
+    - ✅ Добавлен pytrends>=4.9.2 в requirements.txt
+    - ✅ Добавлен matplotlib>=3.7 для визуализации
+    - ✅ Rate limiting для бесплатных API (50 req/min)
+    - ✅ Graceful fallback к дефолтным значениям
+    - ✅ Полная совместимость с Windows (удалены emoji)
+  
+  - ✅ **ИТОГО: 84 фичи (было 75, +9 новых фичей!)**
+  - ✅ **ВСЕ API работают БЕЗ КЛЮЧЕЙ!**
+  - ✅ Git commit: 9ea8e05
+
 **Осталось:**
 - ⏳ Запустить обучение модели через scripts/train_and_analyze.py (пользователь)
 - ⏳ PostgreSQL миграция (тестирование)
