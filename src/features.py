@@ -270,16 +270,19 @@ def build_dataset(
     # Получаем последние значения (обновляются раз в день для всех строк)
     try:
         asset = symbol.split("/")[0] if "/" in symbol else "BTC"
-        onchain_feats = get_onchain_features(asset, days=7)
+        onchain_feats = get_onchain_features(asset)  # Новый бесплатный API!
         for key, value in onchain_feats.items():
             df[key] = value
     except Exception as e:
         print(f"[OnChain] Warning: {e}")
         # Placeholder values если API недоступен
+        # Новые on-chain фичи (CoinGecko + Blockchain.info + CoinGlass)
         onchain_keys = [
-            "onchain_exchange_netflow", "onchain_exchange_inflow", "onchain_exchange_outflow",
-            "onchain_active_addresses", "onchain_new_addresses", "onchain_sopr",
-            "onchain_mvrv", "onchain_nupl", "onchain_puell_multiple"
+            "onchain_market_cap", "onchain_volume_24h", "onchain_circulating_supply",
+            "onchain_price_change_24h", "onchain_price_change_7d", "onchain_price_change_30d",
+            "onchain_hash_rate", "onchain_difficulty", "onchain_tx_count_24h",
+            "onchain_funding_rate", "onchain_liquidations_24h",
+            "onchain_long_liquidations", "onchain_short_liquidations"
         ]
         for key in onchain_keys:
             df[key] = 0.0
@@ -291,9 +294,11 @@ def build_dataset(
             df[key] = value
     except Exception as e:
         print(f"[Macro] Warning: {e}")
+        # Новые macro фичи (Fear & Greed + Yahoo Finance)
         macro_keys = [
-            "macro_fear_greed", "macro_fear_greed_norm", "macro_fed_rate",
-            "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread", "macro_dxy"
+            "macro_fear_greed", "macro_fear_greed_norm", "macro_dxy",
+            "macro_gold_price", "macro_oil_price", "macro_fed_rate",
+            "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread"
         ]
         for key in macro_keys:
             df[key] = 0.0
@@ -305,9 +310,10 @@ def build_dataset(
             df[key] = value
     except Exception as e:
         print(f"[Social] Warning: {e}")
+        # Новые social фичи (Reddit public JSON + Google Trends)
         social_keys = [
-            "social_twitter_mentions", "social_twitter_sentiment", "social_reddit_posts",
-            "social_reddit_sentiment", "social_google_trends"
+            "social_reddit_posts", "social_reddit_sentiment", "social_reddit_avg_score",
+            "social_google_trends", "social_twitter_mentions", "social_twitter_sentiment"
         ]
         for key in social_keys:
             df[key] = 0.0
@@ -332,21 +338,24 @@ def build_dataset(
         ]
         + [f"tag_{t}_{6}" for t in TAGS]
         + [f"tag_{t}_{24}" for t in TAGS]
-        # On-chain фичи
+        # On-chain фичи (НОВЫЕ - CoinGecko + Blockchain.info + CoinGlass)
         + [
-            "onchain_exchange_netflow", "onchain_exchange_inflow", "onchain_exchange_outflow",
-            "onchain_active_addresses", "onchain_new_addresses", "onchain_sopr",
-            "onchain_mvrv", "onchain_nupl", "onchain_puell_multiple",
+            "onchain_market_cap", "onchain_volume_24h", "onchain_circulating_supply",
+            "onchain_price_change_24h", "onchain_price_change_7d", "onchain_price_change_30d",
+            "onchain_hash_rate", "onchain_difficulty", "onchain_tx_count_24h",
+            "onchain_funding_rate", "onchain_liquidations_24h",
+            "onchain_long_liquidations", "onchain_short_liquidations",
         ]
-        # Макро фичи
+        # Макро фичи (НОВЫЕ - Fear & Greed + Yahoo Finance)
         + [
-            "macro_fear_greed", "macro_fear_greed_norm", "macro_fed_rate",
-            "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread", "macro_dxy",
+            "macro_fear_greed", "macro_fear_greed_norm", "macro_dxy",
+            "macro_gold_price", "macro_oil_price", "macro_fed_rate",
+            "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread",
         ]
-        # Social фичи
+        # Social фичи (НОВЫЕ - Reddit public JSON + Google Trends)
         + [
-            "social_twitter_mentions", "social_twitter_sentiment", "social_reddit_posts",
-            "social_reddit_sentiment", "social_google_trends",
+            "social_reddit_posts", "social_reddit_sentiment", "social_reddit_avg_score",
+            "social_google_trends", "social_twitter_mentions", "social_twitter_sentiment",
         ]
     )
 
@@ -447,26 +456,32 @@ def build_dataset_for_rl(
         df[f"tag_{tag}_24"] = 0.0
     
     # --- On-chain фичи (заглушки, опционально можно загружать) ---
+    # Новые on-chain фичи (CoinGecko + Blockchain.info + CoinGlass)
     onchain_keys = [
-        "onchain_exchange_netflow", "onchain_exchange_inflow", "onchain_exchange_outflow",
-        "onchain_active_addresses", "onchain_new_addresses", "onchain_sopr",
-        "onchain_mvrv", "onchain_nupl", "onchain_puell_multiple",
+        "onchain_market_cap", "onchain_volume_24h", "onchain_circulating_supply",
+        "onchain_price_change_24h", "onchain_price_change_7d", "onchain_price_change_30d",
+        "onchain_hash_rate", "onchain_difficulty", "onchain_tx_count_24h",
+        "onchain_funding_rate", "onchain_liquidations_24h",
+        "onchain_long_liquidations", "onchain_short_liquidations",
     ]
     for key in onchain_keys:
         df[key] = 0.0
     
     # --- Макро фичи (заглушки) ---
+    # Новые macro фичи (Fear & Greed + Yahoo Finance)
     macro_keys = [
-        "macro_fear_greed", "macro_fear_greed_norm", "macro_fed_rate",
-        "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread", "macro_dxy",
+        "macro_fear_greed", "macro_fear_greed_norm", "macro_dxy",
+        "macro_gold_price", "macro_oil_price", "macro_fed_rate",
+        "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread",
     ]
     for key in macro_keys:
         df[key] = 0.0
     
     # --- Social фичи (заглушки) ---
+    # Новые social фичи (Reddit public JSON + Google Trends)
     social_keys = [
-        "social_twitter_mentions", "social_twitter_sentiment", "social_reddit_posts",
-        "social_reddit_sentiment", "social_google_trends",
+        "social_reddit_posts", "social_reddit_sentiment", "social_reddit_avg_score",
+        "social_google_trends", "social_twitter_mentions", "social_twitter_sentiment",
     ]
     for key in social_keys:
         df[key] = 0.0

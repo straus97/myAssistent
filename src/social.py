@@ -76,31 +76,12 @@ def get_twitter_mentions(query: str = "bitcoin OR btc", max_results: int = 100) 
 
 
 # ====================
-# Reddit API
+# Reddit API - Public JSON (БЕЗ КЛЮЧА!)
 # ====================
-
-def _get_reddit_token() -> Optional[str]:
-    """Получить OAuth token для Reddit API"""
-    if not REDDIT_CLIENT_ID or not REDDIT_CLIENT_SECRET:
-        return None
-    
-    url = "https://www.reddit.com/api/v1/access_token"
-    auth = (REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET)
-    headers = {"User-Agent": "MyAssistent/1.0"}
-    data = {"grant_type": "client_credentials"}
-    
-    try:
-        response = requests.post(url, auth=auth, headers=headers, data=data, timeout=10)
-        if response.status_code == 200:
-            return response.json().get("access_token")
-        return None
-    except Exception:
-        return None
-
 
 def get_reddit_sentiment(subreddits: List[str] = None, limit: int = 25) -> Optional[Dict]:
     """
-    Получить sentiment из Reddit
+    Получить sentiment из Reddit через PUBLIC JSON API (НЕ требуется OAuth!)
     
     Args:
         subreddits: Список сабреддитов (default: ["cryptocurrency", "bitcoin", "ethereum"])
@@ -116,19 +97,12 @@ def get_reddit_sentiment(subreddits: List[str] = None, limit: int = 25) -> Optio
     if subreddits is None:
         subreddits = ["cryptocurrency", "bitcoin", "ethereum"]
     
-    token = _get_reddit_token()
-    if not token:
-        logger.warning("[Reddit] OAuth token not available (check REDDIT_CLIENT_ID/SECRET)")
-        return None
-    
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "User-Agent": "MyAssistent/1.0",
-    }
-    
+    headers = {"User-Agent": "MyAssistent/1.0 (Educational purposes)"}
     all_posts = []
+    
     for subreddit in subreddits:
-        url = f"https://oauth.reddit.com/r/{subreddit}/hot"
+        # Reddit Public JSON API (добавляем .json к URL)
+        url = f"https://www.reddit.com/r/{subreddit}/hot.json"
         params = {"limit": limit}
         
         try:
@@ -138,19 +112,24 @@ def get_reddit_sentiment(subreddits: List[str] = None, limit: int = 25) -> Optio
                 if "data" in data and "children" in data["data"]:
                     posts = data["data"]["children"]
                     all_posts.extend(posts)
+                    logger.info(f"[Reddit] Fetched {len(posts)} posts from r/{subreddit}")
+            elif response.status_code == 429:
+                logger.warning(f"[Reddit] Rate limit hit for r/{subreddit}, skipping")
+                continue
         except Exception as e:
             logger.error(f"[Reddit] Failed to fetch r/{subreddit}: {e}")
             continue
     
     if not all_posts:
+        logger.warning("[Reddit] No posts fetched from any subreddit")
         return None
     
-    # Анализ sentiment на основе upvote/downvote ratio
-    scores = [p["data"]["score"] for p in all_posts if "data" in p]
+    # Анализ sentiment на основе upvote/downvote ratio и score
+    scores = [p["data"]["score"] for p in all_posts if "data" in p and "score" in p["data"]]
     avg_score = sum(scores) / len(scores) if scores else 0
     
     # Sentiment estimate (0-1) на основе среднего score
-    # Высокие scores = позитивный sentiment
+    # Reddit scores обычно 10-500, нормализуем
     sentiment_estimate = min(max(avg_score / 500, 0), 1)
     
     return {
@@ -196,38 +175,51 @@ def get_google_trends_interest(keyword: str = "bitcoin") -> Optional[float]:
 
 def get_social_features() -> Dict[str, float]:
     """
-    Получить все social фичи
+    Получить все social фичи (БЕСПЛАТНЫЕ API!)
     
     Returns:
         Dict с ключами вида "social_{metric_name}"
     """
     features = {}
     
-    # Twitter mentions
-    twitter = get_twitter_mentions("bitcoin OR btc OR cryptocurrency")
-    if twitter:
-        features["social_twitter_mentions"] = float(twitter["count"])
-        features["social_twitter_sentiment"] = twitter["sentiment_estimate"]
-    else:
-        features["social_twitter_mentions"] = 0.0
-        features["social_twitter_sentiment"] = 0.5  # Neutral
-    
-    # Reddit sentiment
-    reddit = get_reddit_sentiment()
+    # 1. Reddit sentiment (PUBLIC JSON API - всегда работает!)
+    logger.info("[Social] Fetching Reddit sentiment (public JSON)...")
+    reddit = get_reddit_sentiment(subreddits=["cryptocurrency", "bitcoin"], limit=15)
     if reddit:
         features["social_reddit_posts"] = float(reddit["post_count"])
         features["social_reddit_sentiment"] = reddit["sentiment_estimate"]
+        features["social_reddit_avg_score"] = reddit["avg_score"]
     else:
         features["social_reddit_posts"] = 0.0
         features["social_reddit_sentiment"] = 0.5  # Neutral
+        features["social_reddit_avg_score"] = 0.0
     
-    # Google Trends
+    # 2. Google Trends (через pytrends - бесплатно!)
+    logger.info("[Social] Fetching Google Trends...")
     trends = get_google_trends_interest("bitcoin")
     if trends is not None:
         features["social_google_trends"] = trends
     else:
-        features["social_google_trends"] = 50.0  # Neutral
+        logger.warning("[Social] pytrends not available or failed")
+        features["social_google_trends"] = 50.0  # Neutral (mid-range 0-100)
     
+    # 3. Twitter mentions (если есть token, иначе пропускаем)
+    if TWITTER_BEARER_TOKEN:
+        logger.info("[Social] Fetching Twitter mentions...")
+        twitter = get_twitter_mentions("bitcoin OR btc OR cryptocurrency", max_results=50)
+        if twitter:
+            features["social_twitter_mentions"] = float(twitter["count"])
+            features["social_twitter_sentiment"] = twitter["sentiment_estimate"]
+        else:
+            features["social_twitter_mentions"] = 0.0
+            features["social_twitter_sentiment"] = 0.5
+    else:
+        # Без Twitter API используем Reddit как прокси
+        logger.info("[Social] Twitter API not configured, using Reddit as proxy")
+        features["social_twitter_mentions"] = features["social_reddit_posts"]  # Proxy
+        features["social_twitter_sentiment"] = features["social_reddit_sentiment"]
+    
+    logger.info(f"[Social] Successfully fetched {len(features)} social features")
     return features
 
 

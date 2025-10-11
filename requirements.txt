@@ -14,6 +14,7 @@ numpy>=1.26
 scikit-learn>=1.3
 xgboost>=2.0
 joblib>=1.3
+matplotlib>=3.7  # Визуализация (feature importance, backtest)
 
 # NLP & Transformers
 transformers>=4.30.0
@@ -27,6 +28,7 @@ pybit>=5.6
 # News & Data Fetching
 feedparser>=6.0
 requests>=2.31
+pytrends>=4.9.2  # Google Trends (бесплатный!)
 
 # Scheduling & Background Tasks
 apscheduler>=3.10

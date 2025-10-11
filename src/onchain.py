@@ -1,6 +1,6 @@
 """
-On-chain метрики через Glassnode API
-Требуется API key: https://glassnode.com/
+On-chain метрики через БЕСПЛАТНЫЕ API (CoinGecko, CoinGlass, Blockchain.com)
+НЕ требуется API key! 🚀
 """
 from __future__ import annotations
 import os
@@ -9,217 +9,277 @@ from typing import Dict, Optional
 from datetime import datetime, timedelta
 import pandas as pd
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
-# Glassnode API
-GLASSNODE_API_KEY = os.getenv("GLASSNODE_API_KEY", "")
-GLASSNODE_BASE_URL = "https://api.glassnode.com/v1/metrics"
+# API endpoints (все бесплатные!)
+COINGECKO_BASE = "https://api.coingecko.com/api/v3"
+COINGLASS_BASE = "https://open-api.coinglass.com/public/v2"
+BLOCKCHAIN_INFO_BASE = "https://blockchain.info"
 
 
-def _get_glassnode(endpoint: str, asset: str = "BTC", params: Optional[Dict] = None) -> Optional[pd.DataFrame]:
-    """
-    Базовый запрос к Glassnode API
-    
-    Args:
-        endpoint: Например "addresses/active_count"
-        asset: BTC, ETH, etc.
-        params: Дополнительные параметры (since, until, interval)
-    
-    Returns:
-        DataFrame с колонками [timestamp, value] или None если ошибка
-    """
-    if not GLASSNODE_API_KEY:
-        logger.warning("[Glassnode] API key not configured (set GLASSNODE_API_KEY in .env)")
-        return None
-    
-    url = f"{GLASSNODE_BASE_URL}/{endpoint}"
-    params = params or {}
-    params["a"] = asset
-    params["api_key"] = GLASSNODE_API_KEY
-    
+def _rate_limit_sleep(delay: float = 1.2):
+    """Rate limiting для бесплатных API (50 req/min = 1.2 sec delay)"""
+    time.sleep(delay)
+
+
+def _coingecko_get(endpoint: str, params: Optional[Dict] = None) -> Optional[Dict]:
+    """Запрос к CoinGecko API (бесплатный, 50 req/min)"""
+    url = f"{COINGECKO_BASE}/{endpoint}"
     try:
-        response = requests.get(url, params=params, timeout=15)
+        response = requests.get(url, params=params or {}, timeout=15)
         if response.status_code == 200:
-            data = response.json()
-            if not data:
-                return None
-            df = pd.DataFrame(data)
-            df["timestamp"] = pd.to_datetime(df["t"], unit="s", utc=True)
-            df = df.rename(columns={"v": "value"})
-            return df[["timestamp", "value"]]
+            return response.json()
+        elif response.status_code == 429:
+            logger.warning("[CoinGecko] Rate limit hit, sleeping 60s...")
+            time.sleep(60)
+            return None
         else:
-            logger.error(f"[Glassnode] Error {response.status_code}: {response.text[:200]}")
+            logger.error(f"[CoinGecko] Error {response.status_code}")
             return None
     except Exception as e:
-        logger.error(f"[Glassnode] Request failed: {e}")
+        logger.error(f"[CoinGecko] Request failed: {e}")
+        return None
+
+
+def _blockchain_info_get(endpoint: str) -> Optional[Dict]:
+    """Запрос к Blockchain.info API (бесплатный для BTC)"""
+    url = f"{BLOCKCHAIN_INFO_BASE}/{endpoint}"
+    try:
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logger.error(f"[Blockchain.info] Error {response.status_code}")
+            return None
+    except Exception as e:
+        logger.error(f"[Blockchain.info] Request failed: {e}")
         return None
 
 
 # ====================
-# Exchange Flows
+# CoinGecko - Market Data (бесплатный!)
 # ====================
 
-def get_exchange_netflow(asset: str = "BTC", days: int = 30) -> Optional[pd.DataFrame]:
+def get_coingecko_market_data(coin_id: str = "bitcoin") -> Optional[Dict]:
     """
-    Exchange Net Flows - приток/отток с бирж
-    Отрицательные значения = вывод с бирж (потенциально bullish)
-    Положительные = приток на биржи (потенциально bearish)
+    Получить рыночные данные с CoinGecko
+    
+    Включает: market cap, volume, price changes, circulating supply
     """
-    since = int((datetime.now() - timedelta(days=days)).timestamp())
-    params = {"since": since, "i": "24h"}
-    return _get_glassnode("transactions/transfers_volume_exchanges_net", asset, params)
-
-
-def get_exchange_inflow(asset: str = "BTC", days: int = 30) -> Optional[pd.DataFrame]:
-    """
-    Exchange Inflows - приток на биржи
-    """
-    since = int((datetime.now() - timedelta(days=days)).timestamp())
-    params = {"since": since, "i": "24h"}
-    return _get_glassnode("transactions/transfers_volume_to_exchanges", asset, params)
-
-
-def get_exchange_outflow(asset: str = "BTC", days: int = 30) -> Optional[pd.DataFrame]:
-    """
-    Exchange Outflows - вывод с бирж
-    """
-    since = int((datetime.now() - timedelta(days=days)).timestamp())
-    params = {"since": since, "i": "24h"}
-    return _get_glassnode("transactions/transfers_volume_from_exchanges", asset, params)
+    data = _coingecko_get(f"coins/{coin_id}", params={
+        "localization": "false",
+        "tickers": "false",
+        "community_data": "false",
+        "developer_data": "false"
+    })
+    
+    if not data or "market_data" not in data:
+        return None
+    
+    md = data["market_data"]
+    return {
+        "market_cap_usd": md.get("market_cap", {}).get("usd", 0),
+        "total_volume_usd": md.get("total_volume", {}).get("usd", 0),
+        "circulating_supply": md.get("circulating_supply", 0),
+        "price_change_24h_pct": md.get("price_change_percentage_24h", 0),
+        "price_change_7d_pct": md.get("price_change_percentage_7d", 0),
+        "price_change_30d_pct": md.get("price_change_percentage_30d", 0),
+    }
 
 
 # ====================
-# Network Activity
+# Blockchain.info - Bitcoin On-chain (бесплатный!)
 # ====================
 
-def get_active_addresses(asset: str = "BTC", days: int = 30) -> Optional[pd.DataFrame]:
+def get_btc_blockchain_stats() -> Optional[Dict]:
     """
-    Active Addresses - количество уникальных активных адресов
-    Показатель сетевой активности
+    Bitcoin blockchain статистика от Blockchain.info
+    
+    Returns:
+        {
+            "n_btc_mined": количество добытых BTC,
+            "market_price_usd": цена,
+            "hash_rate": хешрейт сети,
+            "difficulty": сложность,
+            "n_tx": количество транзакций за 24h,
+            "trade_volume_usd": объем торгов,
+        }
     """
-    since = int((datetime.now() - timedelta(days=days)).timestamp())
-    params = {"since": since, "i": "24h"}
-    return _get_glassnode("addresses/active_count", asset, params)
-
-
-def get_new_addresses(asset: str = "BTC", days: int = 30) -> Optional[pd.DataFrame]:
-    """
-    New Addresses - новые адреса (первые транзакции)
-    Показатель adoption
-    """
-    since = int((datetime.now() - timedelta(days=days)).timestamp())
-    params = {"since": since, "i": "24h"}
-    return _get_glassnode("addresses/new_non_zero_count", asset, params)
-
-
-# ====================
-# Profitability Metrics
-# ====================
-
-def get_sopr(asset: str = "BTC", days: int = 30) -> Optional[pd.DataFrame]:
-    """
-    SOPR (Spent Output Profit Ratio)
-    > 1 = монеты продаются в прибыли
-    < 1 = монеты продаются в убытке
-    """
-    since = int((datetime.now() - timedelta(days=days)).timestamp())
-    params = {"since": since, "i": "24h"}
-    return _get_glassnode("indicators/sopr", asset, params)
-
-
-def get_mvrv_ratio(asset: str = "BTC", days: int = 30) -> Optional[pd.DataFrame]:
-    """
-    MVRV Ratio (Market Value to Realized Value)
-    > 3.5 = потенциально overvalued (top signal)
-    < 1.0 = потенциально undervalued (bottom signal)
-    """
-    since = int((datetime.now() - timedelta(days=days)).timestamp())
-    params = {"since": since, "i": "24h"}
-    return _get_glassnode("market/mvrv", asset, params)
-
-
-def get_nupl(asset: str = "BTC", days: int = 30) -> Optional[pd.DataFrame]:
-    """
-    NUPL (Net Unrealized Profit/Loss)
-    > 0.75 = euphoria (top signal)
-    < 0 = capitulation (bottom signal)
-    """
-    since = int((datetime.now() - timedelta(days=days)).timestamp())
-    params = {"since": since, "i": "24h"}
-    return _get_glassnode("indicators/net_unrealized_profit_loss", asset, params)
+    data = _blockchain_info_get("stats?format=json")
+    if not data:
+        return None
+    
+    return {
+        "n_btc_mined": data.get("n_btc_mined", 0) / 1e8,  # Satoshi to BTC
+        "market_price_usd": data.get("market_price_usd", 0),
+        "hash_rate": data.get("hash_rate", 0),
+        "difficulty": data.get("difficulty", 0),
+        "n_tx": data.get("n_tx", 0),
+        "trade_volume_usd": data.get("trade_volume_usd", 0),
+        "mempool_size": data.get("mempool_size", 0),
+    }
 
 
 # ====================
-# Miner Metrics
+# CoinGlass - Derivatives Data (бесплатный!)
 # ====================
 
-def get_puell_multiple(asset: str = "BTC", days: int = 30) -> Optional[pd.DataFrame]:
+def get_coinglass_funding_rate(symbol: str = "BTC") -> Optional[float]:
     """
-    Puell Multiple - mining economics
-    > 4 = miners selling heavily (potential top)
-    < 0.5 = miners struggling (potential bottom)
+    Funding Rate - индикатор настроения на derivatives рынке
+    Положительный = longs платят shorts (bullish sentiment)
+    Отрицательный = shorts платят longs (bearish sentiment)
     """
-    since = int((datetime.now() - timedelta(days=days)).timestamp())
-    params = {"since": since, "i": "24h"}
-    return _get_glassnode("indicators/puell_multiple", asset, params)
+    try:
+        # CoinGlass Public API (без ключа!)
+        url = f"https://fapi.coinglass.com/api/fundingRate/v2/home"
+        params = {"symbol": symbol}
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success") and "data" in data:
+                # Усреднение по биржам
+                rates = [float(item["rate"]) for item in data["data"] if "rate" in item]
+                if rates:
+                    return sum(rates) / len(rates)
+        return None
+    except Exception as e:
+        logger.error(f"[CoinGlass] Funding rate request failed: {e}")
+        return None
+
+
+def get_coinglass_liquidations(symbol: str = "BTC") -> Optional[Dict]:
+    """
+    24h Liquidations - объем ликвидаций за последние 24h
+    Высокие ликвидации = волатильность
+    """
+    try:
+        url = f"https://fapi.coinglass.com/api/futures/liquidation/chart"
+        params = {"symbol": symbol, "interval": "h1"}
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("success") and "data" in data:
+                liq_data = data["data"]
+                total_longs = sum(float(item.get("longLiquidationValue", 0)) for item in liq_data)
+                total_shorts = sum(float(item.get("shortLiquidationValue", 0)) for item in liq_data)
+                return {
+                    "total_liquidations_usd": total_longs + total_shorts,
+                    "long_liquidations_usd": total_longs,
+                    "short_liquidations_usd": total_shorts,
+                }
+        return None
+    except Exception as e:
+        logger.error(f"[CoinGlass] Liquidations request failed: {e}")
+        return None
 
 
 # ====================
 # Helper: Get all metrics as features
 # ====================
 
-def get_onchain_features(asset: str = "BTC", days: int = 30) -> Dict[str, float]:
+def get_onchain_features(asset: str = "BTC") -> Dict[str, float]:
     """
-    Получить все on-chain метрики как словарь фич (последние значения)
+    Получить все on-chain метрики как словарь фич (БЕСПЛАТНЫЕ API!)
     
     Returns:
         Dict с ключами вида "onchain_{metric_name}"
     """
     features = {}
     
-    # Placeholder values (если API key не настроен)
-    if not GLASSNODE_API_KEY:
-        logger.info("[Glassnode] Using placeholder values (API key not configured)")
-        return {
-            "onchain_exchange_netflow": 0.0,
-            "onchain_exchange_inflow": 0.0,
-            "onchain_exchange_outflow": 0.0,
-            "onchain_active_addresses": 0.0,
-            "onchain_new_addresses": 0.0,
-            "onchain_sopr": 1.0,  # Neutral
-            "onchain_mvrv": 1.5,  # Neutral
-            "onchain_nupl": 0.3,  # Neutral
-            "onchain_puell_multiple": 1.0,  # Neutral
-        }
-    
-    # Fetch real data
-    metrics = {
-        "exchange_netflow": get_exchange_netflow(asset, days),
-        "exchange_inflow": get_exchange_inflow(asset, days),
-        "exchange_outflow": get_exchange_outflow(asset, days),
-        "active_addresses": get_active_addresses(asset, days),
-        "new_addresses": get_new_addresses(asset, days),
-        "sopr": get_sopr(asset, days),
-        "mvrv": get_mvrv_ratio(asset, days),
-        "nupl": get_nupl(asset, days),
-        "puell_multiple": get_puell_multiple(asset, days),
+    # Маппинг coin_id для CoinGecko
+    coin_id_map = {
+        "BTC": "bitcoin",
+        "ETH": "ethereum",
+        "SOL": "solana",
+        "USDT": "tether",
+        "BNB": "binancecoin",
     }
+    coin_id = coin_id_map.get(asset, "bitcoin")
     
-    for name, df in metrics.items():
-        if df is not None and not df.empty:
-            # Берём последнее значение
-            features[f"onchain_{name}"] = float(df["value"].iloc[-1])
+    # 1. CoinGecko Market Data (всегда доступно!)
+    logger.info(f"[OnChain] Fetching CoinGecko data for {coin_id}...")
+    market_data = get_coingecko_market_data(coin_id)
+    if market_data:
+        features["onchain_market_cap"] = market_data["market_cap_usd"] / 1e9  # В миллиардах
+        features["onchain_volume_24h"] = market_data["total_volume_usd"] / 1e9
+        features["onchain_circulating_supply"] = market_data["circulating_supply"] / 1e6  # В миллионах
+        features["onchain_price_change_24h"] = market_data["price_change_24h_pct"]
+        features["onchain_price_change_7d"] = market_data["price_change_7d_pct"]
+        features["onchain_price_change_30d"] = market_data["price_change_30d_pct"]
+    else:
+        logger.warning("[OnChain] Failed to fetch CoinGecko data, using defaults")
+        features.update({
+            "onchain_market_cap": 0.0,
+            "onchain_volume_24h": 0.0,
+            "onchain_circulating_supply": 0.0,
+            "onchain_price_change_24h": 0.0,
+            "onchain_price_change_7d": 0.0,
+            "onchain_price_change_30d": 0.0,
+        })
+    
+    _rate_limit_sleep()  # Rate limiting
+    
+    # 2. Blockchain.info (только для BTC)
+    if asset == "BTC":
+        logger.info("[OnChain] Fetching Blockchain.info data...")
+        btc_stats = get_btc_blockchain_stats()
+        if btc_stats:
+            features["onchain_hash_rate"] = btc_stats["hash_rate"] / 1e18  # В EH/s
+            features["onchain_difficulty"] = btc_stats["difficulty"] / 1e12  # В триллионах
+            features["onchain_tx_count_24h"] = btc_stats["n_tx"] / 1000  # В тысячах
         else:
-            features[f"onchain_{name}"] = 0.0
+            features.update({
+                "onchain_hash_rate": 0.0,
+                "onchain_difficulty": 0.0,
+                "onchain_tx_count_24h": 0.0,
+            })
+    else:
+        # Заглушки для других монет
+        features.update({
+            "onchain_hash_rate": 0.0,
+            "onchain_difficulty": 0.0,
+            "onchain_tx_count_24h": 0.0,
+        })
     
+    _rate_limit_sleep()
+    
+    # 3. CoinGlass Derivatives Data (для всех)
+    logger.info(f"[OnChain] Fetching CoinGlass data for {asset}...")
+    funding_rate = get_coinglass_funding_rate(asset)
+    if funding_rate is not None:
+        features["onchain_funding_rate"] = funding_rate * 100  # В процентах
+    else:
+        features["onchain_funding_rate"] = 0.0
+    
+    _rate_limit_sleep()
+    
+    liquidations = get_coinglass_liquidations(asset)
+    if liquidations:
+        features["onchain_liquidations_24h"] = liquidations["total_liquidations_usd"] / 1e6  # В миллионах
+        features["onchain_long_liquidations"] = liquidations["long_liquidations_usd"] / 1e6
+        features["onchain_short_liquidations"] = liquidations["short_liquidations_usd"] / 1e6
+    else:
+        features.update({
+            "onchain_liquidations_24h": 0.0,
+            "onchain_long_liquidations": 0.0,
+            "onchain_short_liquidations": 0.0,
+        })
+    
+    logger.info(f"[OnChain] Successfully fetched {len(features)} on-chain features")
     return features
 
 
 if __name__ == "__main__":
-    # Тестирование (требуется GLASSNODE_API_KEY в .env)
-    print("Testing Glassnode API...")
-    features = get_onchain_features("BTC", days=7)
+    # Тестирование (НЕ требуется API keys!)
+    print("Testing FREE On-chain APIs...")
+    print("\nCoinGecko + Blockchain.info + CoinGlass\n")
+    
+    features = get_onchain_features("BTC")
     for k, v in features.items():
         print(f"{k}: {v}")
 
