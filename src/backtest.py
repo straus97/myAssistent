@@ -507,20 +507,20 @@ def extract_trades(df: pd.DataFrame, max_trades: int = 100) -> List[Dict]:
     exits = (position_change == -1)
     
     trades = []
-    entry_idx = None
+    entry_pos = None  # Позиционный индекс (0, 1, 2, ...)
     entry_time = None
     entry_price = None
     
-    for idx in df.index:
+    for i, idx in enumerate(df.index):
         if entries[idx]:
-            entry_idx = idx
+            entry_pos = i
             entry_time = df.loc[idx, "timestamp"]
             entry_price = df.loc[idx, "close"]
-        elif exits[idx] and entry_idx is not None:
+        elif exits[idx] and entry_pos is not None:
             exit_time = df.loc[idx, "timestamp"]
             exit_price = df.loc[idx, "close"]
             pnl = (exit_price / entry_price) - 1.0
-            duration = idx - entry_idx
+            duration = i - entry_pos
             
             trades.append({
                 "entry_time": str(entry_time),
@@ -531,14 +531,14 @@ def extract_trades(df: pd.DataFrame, max_trades: int = 100) -> List[Dict]:
                 "duration_bars": int(duration),
             })
             
-            entry_idx = None
+            entry_pos = None
     
     # Открытая сделка в конце
-    if entry_idx is not None:
+    if entry_pos is not None:
         exit_time = df.iloc[-1]["timestamp"]
         exit_price = df.iloc[-1]["close"]
         pnl = (exit_price / entry_price) - 1.0
-        duration = len(df) - 1 - entry_idx
+        duration = len(df) - 1 - entry_pos
         
         trades.append({
             "entry_time": str(entry_time),
