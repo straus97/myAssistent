@@ -1,374 +1,347 @@
 """
-API endpoints для Reinforcement Learning агента (PPO).
+RL (Reinforcement Learning) Router
 
-Endpoints:
-- POST /rl/train - Обучение RL агента
-- POST /rl/predict - Предсказание sizing
-- POST /rl/predict/hybrid - Hybrid модель (XGBoost + RL)
-- GET /rl/models - Список обученных моделей
-- GET /rl/evaluate/{model_id} - Оценка производительности
+API endpoints для обучения и inference PPO-агента.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, List
-from sqlalchemy.orm import Session
-from pathlib import Path
 import logging
-import numpy as np
-import pandas as pd
+from typing import Optional
+from datetime import datetime
 
-from ..dependencies import require_api_key, get_db
-from ..rl_agent import (
-    train_rl_agent,
-    load_rl_agent,
-    predict_sizing,
-    predict_hybrid_sizing,
-    evaluate_rl_agent,
-    walk_forward_training,
-)
-from ..rl_env import create_trading_env
-from ..features import build_dataset
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, Field
+
+from src.dependencies import require_api_key
+from src.rl_agent import RLAgent, load_latest_rl_model
+from src.prices import fetch_ohlcv
+from src.features import build_dataset_for_rl
+import pandas as pd
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/rl", tags=["RL Agent"])
+router = APIRouter(prefix="/rl", tags=["RL"])
 
 
-# ============================
-# Pydantic Models
-# ============================
+# === Request/Response Models ===
 
-class RLTrainRequest(BaseModel):
-    """Запрос на обучение RL агента."""
+class TrainRequest(BaseModel):
+    """Запрос на обучение RL-агента."""
     exchange: str = Field(..., description="Биржа (bybit, binance)")
-    symbol: str = Field(..., description="Торговая пара (BTC/USDT)")
+    symbol: str = Field(..., description="Символ (BTC/USDT)")
     timeframe: str = Field(..., description="Таймфрейм (1h, 4h, 1d)")
-    start_date: str = Field(..., description="Дата начала обучения (YYYY-MM-DD)")
-    end_date: str = Field(..., description="Дата окончания обучения (YYYY-MM-DD)")
-    total_timesteps: int = Field(100_000, ge=1000, description="Общее количество шагов обучения")
-    learning_rate: float = Field(3e-4, gt=0, description="Learning rate")
-    initial_capital: float = Field(1000.0, gt=0, description="Начальный капитал")
-    commission_bps: float = Field(8.0, ge=0, description="Комиссии в базисных пунктах")
-    walk_forward: bool = Field(False, description="Использовать walk-forward training")
+    start_date: Optional[str] = Field(None, description="Дата начала (YYYY-MM-DD)")
+    end_date: Optional[str] = Field(None, description="Дата окончания (YYYY-MM-DD)")
+    initial_capital: float = Field(1000.0, description="Начальный капитал")
+    total_timesteps: int = Field(100000, description="Количество шагов обучения")
+    learning_rate: float = Field(3e-4, description="Learning rate")
+    n_steps: int = Field(2048, description="Шагов на rollout")
+    batch_size: int = Field(64, description="Batch size")
+
+
+class PredictRequest(BaseModel):
+    """Запрос на inference."""
+    exchange: str = Field(..., description="Биржа")
+    symbol: str = Field(..., description="Символ")
+    timeframe: str = Field(..., description="Таймфрейм")
+    model_path: Optional[str] = Field(None, description="Путь к модели (опционально, иначе последняя)")
+    start_date: Optional[str] = Field(None, description="Дата начала")
+    end_date: Optional[str] = Field(None, description="Дата окончания")
+    initial_capital: float = Field(1000.0, description="Начальный капитал")
+
+
+class PerformanceRequest(BaseModel):
+    """Запрос на оценку производительности."""
+    exchange: str = Field(..., description="Биржа")
+    symbol: str = Field(..., description="Символ")
+    timeframe: str = Field(..., description="Таймфрейм")
+    model_path: Optional[str] = Field(None, description="Путь к модели")
+    n_eval_episodes: int = Field(10, description="Количество эпизодов для оценки")
+    start_date: Optional[str] = Field(None, description="Дата начала")
+    end_date: Optional[str] = Field(None, description="Дата окончания")
+
+
+# === API Endpoints ===
+
+@router.post("/train")
+def train_rl_agent(req: TrainRequest, _=Depends(require_api_key)):
+    """
+    Обучение PPO-агента для динамического sizing.
     
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "exchange": "bybit",
-                "symbol": "BTC/USDT",
-                "timeframe": "1h",
-                "start_date": "2024-01-01",
-                "end_date": "2024-06-01",
-                "total_timesteps": 100000,
-                "learning_rate": 0.0003,
-                "initial_capital": 1000.0,
-                "commission_bps": 8.0,
-                "walk_forward": False,
-            }
+    Процесс:
+    1. Загрузка OHLCV данных
+    2. Построение датасета с фичами
+    3. Обучение PPO модели (Stable-Baselines3)
+    4. Сохранение в artifacts/rl_models/
+    
+    Example:
+        ```bash
+        POST /rl/train
+        {
+          "exchange": "bybit",
+          "symbol": "BTC/USDT",
+          "timeframe": "1h",
+          "start_date": "2024-01-01",
+          "end_date": "2025-01-01",
+          "initial_capital": 1000,
+          "total_timesteps": 100000
         }
-
-
-class RLPredictRequest(BaseModel):
-    """Запрос на предсказание sizing."""
-    model_path: str = Field(..., description="Путь к обученной модели")
-    observation: List[float] = Field(..., description="Текущее состояние (observation)")
-    deterministic: bool = Field(True, description="Детерминированное предсказание")
-
-
-class RLHybridRequest(BaseModel):
-    """Запрос на hybrid предсказание (XGBoost + RL)."""
-    rl_model_path: str = Field(..., description="Путь к RL модели")
-    xgboost_proba: float = Field(..., ge=0.0, le=1.0, description="Вероятность от XGBoost")
-    observation: List[float] = Field(..., description="Текущее состояние")
-    threshold_buy: float = Field(0.6, ge=0.0, le=1.0, description="Порог для BUY")
-    threshold_sell: float = Field(0.4, ge=0.0, le=1.0, description="Порог для SELL")
-
-
-# ============================
-# Endpoints
-# ============================
-
-@router.post("/train", dependencies=[Depends(require_api_key)])
-def train_rl_endpoint(
-    request: RLTrainRequest,
-    db: Session = Depends(get_db),
-):
+        ```
     """
-    Обучить RL агента (PPO) на исторических данных.
-    
-    **Процесс:**
-    1. Загрузка исторических данных с фичами
-    2. Создание Custom Gym Environment
-    3. Обучение PPO агента
-    4. Сохранение модели в artifacts/rl_models/
-    
-    **Walk-forward training:**
-    - Если `walk_forward=True`, обучение происходит на скользящих окнах
-    - Каждое окно: 30 дней обучения → 7 дней тест
-    - Более реалистичная оценка производительности
-    
-    **Пример:**
-    ```json
-    {
-      "exchange": "bybit",
-      "symbol": "BTC/USDT",
-      "timeframe": "1h",
-      "start_date": "2024-01-01",
-      "end_date": "2024-06-01",
-      "total_timesteps": 100000
-    }
-    ```
-    """
-    logger.info(f"[rl] Starting RL training: {request.exchange} {request.symbol} {request.timeframe}")
-    
     try:
-        if request.walk_forward:
-            # Walk-forward training
-            results = walk_forward_training(
-                db=db,
-                exchange=request.exchange,
-                symbol=request.symbol,
-                timeframe=request.timeframe,
-                start_date=request.start_date,
-                end_date=request.end_date,
-                window_days=30,
-                step_days=7,
-                total_timesteps_per_window=request.total_timesteps // 3,  # Делим на 3 окна
-                learning_rate=request.learning_rate,
-                initial_capital=request.initial_capital,
-                commission_bps=request.commission_bps,
-            )
-            
-            return {
-                "success": True,
-                "method": "walk_forward",
-                "windows": len(results),
-                "results": results,
-            }
+        logger.info(f"Training RL agent: {req.exchange} {req.symbol} {req.timeframe}")
         
+        # 1. Загрузка данных
+        logger.info("Fetching OHLCV data...")
+        prices_df = fetch_ohlcv(
+            exchange=req.exchange,
+            symbol=req.symbol,
+            timeframe=req.timeframe,
+            since=req.start_date,
+            limit=10000,
+        )
+        
+        if prices_df.empty:
+            raise HTTPException(400, "No OHLCV data fetched")
+        
+        # Фильтрация по датам
+        if req.start_date:
+            prices_df = prices_df[prices_df["timestamp"] >= req.start_date]
+        if req.end_date:
+            prices_df = prices_df[prices_df["timestamp"] <= req.end_date]
+        
+        if len(prices_df) < 100:
+            raise HTTPException(400, f"Insufficient data: {len(prices_df)} rows")
+        
+        logger.info(f"Loaded {len(prices_df)} OHLCV bars")
+        
+        # 2. Построение датасета с фичами
+        logger.info("Building dataset with features...")
+        df = build_dataset_for_rl(
+            prices_df=prices_df,
+            exchange=req.exchange,
+            symbol=req.symbol,
+            timeframe=req.timeframe,
+        )
+        
+        logger.info(f"Dataset built: {len(df)} rows, {len(df.columns)} features")
+        
+        # 3. Обучение RL-агента
+        agent = RLAgent()
+        
+        metrics = agent.train(
+            df=df,
+            exchange=req.exchange,
+            symbol=req.symbol,
+            timeframe=req.timeframe,
+            initial_capital=req.initial_capital,
+            total_timesteps=req.total_timesteps,
+            learning_rate=req.learning_rate,
+            n_steps=req.n_steps,
+            batch_size=req.batch_size,
+        )
+        
+        return {
+            "status": "success",
+            "message": "RL agent trained successfully",
+            "metrics": metrics,
+        }
+    
+    except Exception as e:
+        logger.error(f"Failed to train RL agent: {e}", exc_info=True)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/predict")
+def predict_with_rl(req: PredictRequest, _=Depends(require_api_key)):
+    """
+    Inference с использованием обученного RL-агента.
+    
+    Возвращает:
+        - actions: Список действий (direction, sizing)
+        - equity_curve: Кривая капитала
+        - trades: История сделок
+        - metrics: Итоговые метрики (return, sharpe, max_dd, etc.)
+    
+    Example:
+        ```bash
+        POST /rl/predict
+        {
+          "exchange": "bybit",
+          "symbol": "BTC/USDT",
+          "timeframe": "1h",
+          "model_path": "artifacts/rl_models/ppo_bybit_BTC_USDT_1h_20250101_120000.zip"
+        }
+        ```
+    """
+    try:
+        logger.info(f"RL prediction: {req.exchange} {req.symbol} {req.timeframe}")
+        
+        # 1. Определение пути к модели
+        if req.model_path:
+            model_path = req.model_path
         else:
-            # Обычное обучение
-            model, metrics = train_rl_agent(
-                db=db,
-                exchange=request.exchange,
-                symbol=request.symbol,
-                timeframe=request.timeframe,
-                start_date=request.start_date,
-                end_date=request.end_date,
-                total_timesteps=request.total_timesteps,
-                learning_rate=request.learning_rate,
-                initial_capital=request.initial_capital,
-                commission_bps=request.commission_bps,
-            )
-            
-            return {
-                "success": True,
-                "method": "standard",
-                "metrics": metrics,
-            }
-    
-    except Exception as e:
-        logger.error(f"[rl] Training failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
-
-
-@router.post("/predict", dependencies=[Depends(require_api_key)])
-def predict_rl_endpoint(request: RLPredictRequest):
-    """
-    Предсказать действие (buy/sell/hold + sizing) на основе observation.
-    
-    **Observation format:**
-    - Features (78+): Технические, новости, on-chain, macro, social
-    - Meta metrics (6): equity_pct, max_equity_pct, drawdown, position_ratio, volatility, rolling_sharpe
-    
-    **Returns:**
-    - action_type: 0=hold, 1=buy, 2=sell
-    - sizing_pct: Размер позиции (0.0-1.0, доля капитала)
-    
-    **Пример:**
-    ```json
-    {
-      "model_path": "artifacts/rl_models/ppo_bybit_BTC_USDT_1h_20250110_120000.zip",
-      "observation": [0.1, 0.5, ...],  # 84 значения
-      "deterministic": true
-    }
-    ```
-    """
-    logger.info(f"[rl] Predicting with model: {request.model_path}")
-    
-    try:
-        # Загрузка модели
-        model = load_rl_agent(request.model_path)
+            # Загрузка последней модели
+            model_path = load_latest_rl_model(req.exchange, req.symbol, req.timeframe)
+            if not model_path:
+                raise HTTPException(404, f"No trained model found for {req.exchange} {req.symbol} {req.timeframe}")
         
-        # Предсказание
-        observation = np.array(request.observation, dtype=np.float32)
-        action_type, sizing_pct = predict_sizing(model, observation, request.deterministic)
+        if not Path(model_path).exists():
+            raise HTTPException(404, f"Model not found: {model_path}")
         
-        action_map = {0: "hold", 1: "buy", 2: "sell"}
+        logger.info(f"Using model: {model_path}")
         
-        return {
-            "success": True,
-            "action_type": action_type,
-            "action": action_map[action_type],
-            "sizing_pct": float(sizing_pct),
-            "sizing_description": f"{sizing_pct*100:.1f}% of capital",
-        }
-    
-    except Exception as e:
-        logger.error(f"[rl] Prediction failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
-
-
-@router.post("/predict/hybrid", dependencies=[Depends(require_api_key)])
-def predict_hybrid_endpoint(request: RLHybridRequest):
-    """
-    Hybrid предсказание: XGBoost (направление) + RL (sizing).
-    
-    **Логика:**
-    1. XGBoost определяет направление (buy/sell/hold) на основе вероятности
-    2. RL агент определяет optimal sizing (если XGBoost дал сигнал)
-    3. Если RL согласен с XGBoost → используем RL sizing
-    4. Если RL не согласен → консервативный sizing (5%)
-    
-    **Преимущества:**
-    - XGBoost: точное направление (обучен на исторических данных)
-    - RL: адаптивный sizing (учитывает текущее состояние equity, риски)
-    
-    **Пример:**
-    ```json
-    {
-      "rl_model_path": "artifacts/rl_models/ppo_bybit_BTC_USDT_1h_20250110_120000.zip",
-      "xgboost_proba": 0.75,
-      "observation": [0.1, 0.5, ...],
-      "threshold_buy": 0.6,
-      "threshold_sell": 0.4
-    }
-    ```
-    """
-    logger.info(f"[rl] Hybrid prediction: XGBoost proba={request.xgboost_proba:.3f}")
-    
-    try:
-        # Загрузка RL модели
-        rl_model = load_rl_agent(request.rl_model_path)
-        
-        # Hybrid предсказание
-        observation = np.array(request.observation, dtype=np.float32)
-        signal, sizing_pct = predict_hybrid_sizing(
-            rl_model=rl_model,
-            xgboost_proba=request.xgboost_proba,
-            observation=observation,
-            threshold_buy=request.threshold_buy,
-            threshold_sell=request.threshold_sell,
+        # 2. Загрузка данных
+        prices_df = fetch_ohlcv(
+            exchange=req.exchange,
+            symbol=req.symbol,
+            timeframe=req.timeframe,
+            since=req.start_date,
+            limit=10000,
         )
         
-        return {
-            "success": True,
-            "signal": signal,
-            "sizing_pct": float(sizing_pct),
-            "sizing_description": f"{sizing_pct*100:.1f}% of capital",
-            "xgboost_proba": request.xgboost_proba,
-            "method": "hybrid",
-        }
-    
-    except Exception as e:
-        logger.error(f"[rl] Hybrid prediction failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Hybrid prediction failed: {str(e)}")
-
-
-@router.get("/models", dependencies=[Depends(require_api_key)])
-def list_rl_models():
-    """
-    Получить список обученных RL моделей.
-    
-    **Возвращает:**
-    - Список моделей в artifacts/rl_models/
-    - Для каждой модели: имя, размер, дата создания
-    """
-    models_dir = Path("artifacts/rl_models")
-    
-    if not models_dir.exists():
-        return {"models": [], "total": 0}
-    
-    models = []
-    for model_path in sorted(models_dir.glob("ppo_*.zip"), key=lambda p: p.stat().st_mtime, reverse=True):
-        models.append({
-            "name": model_path.name,
-            "path": str(model_path),
-            "size_mb": round(model_path.stat().st_size / 1024 / 1024, 2),
-            "created": model_path.stat().st_mtime,
-        })
-    
-    return {"models": models, "total": len(models)}
-
-
-@router.get("/evaluate/{model_name}", dependencies=[Depends(require_api_key)])
-def evaluate_rl_endpoint(
-    model_name: str,
-    exchange: str = "bybit",
-    symbol: str = "BTC/USDT",
-    timeframe: str = "1h",
-    start_date: str = "2024-06-01",
-    end_date: str = "2024-07-01",
-    n_episodes: int = 10,
-    db: Session = Depends(get_db),
-):
-    """
-    Оценить производительность RL агента на out-of-sample данных.
-    
-    **Процесс:**
-    1. Загрузка модели
-    2. Создание test environment (новые данные)
-    3. Запуск n_episodes
-    4. Расчёт метрик: avg_reward, avg_equity, best/worst
-    
-    **Пример:**
-    ```
-    GET /rl/evaluate/ppo_bybit_BTC_USDT_1h_20250110_120000.zip?n_episodes=10
-    ```
-    """
-    logger.info(f"[rl] Evaluating model: {model_name}")
-    
-    try:
-        # Загрузка модели
-        model_path = Path("artifacts/rl_models") / model_name
-        if not model_path.exists():
-            raise HTTPException(status_code=404, detail=f"Model not found: {model_name}")
+        if prices_df.empty:
+            raise HTTPException(400, "No OHLCV data fetched")
         
-        model = load_rl_agent(str(model_path))
+        # Фильтрация по датам
+        if req.start_date:
+            prices_df = prices_df[prices_df["timestamp"] >= req.start_date]
+        if req.end_date:
+            prices_df = prices_df[prices_df["timestamp"] <= req.end_date]
         
-        # Построение test датасета
-        df, feature_cols = build_dataset(
-            db=db,
-            exchange=exchange,
-            symbol=symbol,
-            timeframe=timeframe,
+        # 3. Построение датасета
+        df = build_dataset_for_rl(
+            prices_df=prices_df,
+            exchange=req.exchange,
+            symbol=req.symbol,
+            timeframe=req.timeframe,
         )
         
-        start = pd.to_datetime(start_date).tz_localize('UTC')
-        end = pd.to_datetime(end_date).tz_localize('UTC')
-        df = df[(df["timestamp"] >= start) & (df["timestamp"] <= end)].copy()
+        # 4. Загрузка агента
+        agent = RLAgent()
+        agent.load(model_path)
         
-        if len(df) < 100:
-            raise HTTPException(status_code=400, detail="Insufficient test data")
-        
-        # Создание environment
-        env = create_trading_env(df=df)
-        
-        # Оценка
-        metrics = evaluate_rl_agent(model, env, n_episodes=n_episodes)
+        # 5. Inference
+        results = agent.predict(df=df, initial_capital=req.initial_capital)
         
         return {
-            "success": True,
-            "model_name": model_name,
-            "test_period": f"{start_date} → {end_date}",
-            "n_episodes": n_episodes,
+            "status": "success",
+            "model_path": model_path,
+            "results": results,
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to predict with RL: {e}", exc_info=True)
+        raise HTTPException(500, detail=str(e))
+
+
+@router.post("/performance")
+def evaluate_rl_performance(req: PerformanceRequest, _=Depends(require_api_key)):
+    """
+    Оценка производительности RL-агента на тестовых данных.
+    
+    Возвращает агрегированные метрики (mean, std) по нескольким эпизодам.
+    
+    Example:
+        ```bash
+        POST /rl/performance
+        {
+          "exchange": "bybit",
+          "symbol": "BTC/USDT",
+          "timeframe": "1h",
+          "n_eval_episodes": 10
+        }
+        ```
+    """
+    try:
+        logger.info(f"Evaluating RL performance: {req.exchange} {req.symbol} {req.timeframe}")
+        
+        # 1. Определение модели
+        if req.model_path:
+            model_path = req.model_path
+        else:
+            model_path = load_latest_rl_model(req.exchange, req.symbol, req.timeframe)
+            if not model_path:
+                raise HTTPException(404, f"No trained model found")
+        
+        if not Path(model_path).exists():
+            raise HTTPException(404, f"Model not found: {model_path}")
+        
+        # 2. Загрузка данных
+        prices_df = fetch_ohlcv(
+            exchange=req.exchange,
+            symbol=req.symbol,
+            timeframe=req.timeframe,
+            since=req.start_date,
+            limit=10000,
+        )
+        
+        # Фильтрация
+        if req.start_date:
+            prices_df = prices_df[prices_df["timestamp"] >= req.start_date]
+        if req.end_date:
+            prices_df = prices_df[prices_df["timestamp"] <= req.end_date]
+        
+        # 3. Построение датасета
+        df = build_dataset_for_rl(
+            prices_df=prices_df,
+            exchange=req.exchange,
+            symbol=req.symbol,
+            timeframe=req.timeframe,
+        )
+        
+        # 4. Загрузка агента
+        agent = RLAgent()
+        agent.load(model_path)
+        
+        # 5. Оценка
+        metrics = agent.evaluate(df=df, n_eval_episodes=req.n_eval_episodes)
+        
+        return {
+            "status": "success",
+            "model_path": model_path,
+            "n_eval_episodes": req.n_eval_episodes,
             "metrics": metrics,
         }
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[rl] Evaluation failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)}")
+        logger.error(f"Failed to evaluate RL performance: {e}", exc_info=True)
+        raise HTTPException(500, detail=str(e))
 
+
+@router.get("/models")
+def list_rl_models(_=Depends(require_api_key)):
+    """
+    Список обученных RL моделей.
+    
+    Returns:
+        List[Dict] с информацией о моделях (name, size, modified_at)
+    """
+    try:
+        model_dir = Path("artifacts/rl_models")
+        
+        if not model_dir.exists():
+            return {"models": []}
+        
+        models = []
+        for model_file in model_dir.glob("ppo_*.zip"):
+            stat = model_file.stat()
+            models.append({
+                "name": model_file.name,
+                "path": str(model_file),
+                "size_mb": round(stat.st_size / 1024 / 1024, 2),
+                "modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+            })
+        
+        # Сортировка по дате (новые сверху)
+        models.sort(key=lambda x: x["modified_at"], reverse=True)
+        
+        return {"models": models}
+    
+    except Exception as e:
+        logger.error(f"Failed to list RL models: {e}", exc_info=True)
+        raise HTTPException(500, detail=str(e))

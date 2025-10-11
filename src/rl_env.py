@@ -1,54 +1,39 @@
 """
-Custom Gymnasium Environment для криптотрейдинга с RL.
+Reinforcement Learning Environment для крипто-трейдинга.
 
-State Space:
-- Позиции (open positions, sizing)
-- Equity history (rolling window)
-- Features (технические + фундаментальные + sentiment)
-- Risk metrics (volatility, DD, Sharpe)
-
-Action Space:
-- Дискретные: buy/sell/hold (3 действия)
-- Непрерывные: sizing (0.0-1.0 от доступного капитала)
-
-Reward Function:
-- Sharpe ratio (risk-adjusted returns)
-- Sortino ratio (downside deviation penalty)
-- Penalty за чрезмерную торговлю (комиссии)
+Custom Gym environment для обучения PPO-агента динамическому sizing позиций.
 """
 
-from __future__ import annotations
-import logging
-from typing import Dict, Tuple, Optional, Any
+import gymnasium as gym
 import numpy as np
 import pandas as pd
-import gymnasium as gym
 from gymnasium import spaces
+from typing import Optional, Tuple, Dict, Any
+import logging
 
 logger = logging.getLogger(__name__)
 
 
 class CryptoTradingEnv(gym.Env):
     """
-    Custom Gym Environment для крипто trading с continuous action space для sizing.
+    Custom Gym environment для крипто-трейдинга.
     
-    Observation Space:
-    - Features: 78+ фич (технические, новости, on-chain, macro, social)
-    - Equity metrics: current_equity, max_equity, drawdown
-    - Position info: current_position, entry_price
-    - Risk metrics: volatility, sharpe (rolling)
+    State Space:
+        - Equity (1)
+        - Open positions: [symbol, direction, size, entry_price, current_pnl] (5 * max_positions)
+        - Features (78 технических/фундаментальных)
+        - Risk metrics: [volatility, max_dd, sharpe] (3)
+        Total: 1 + 5*max_positions + 78 + 3 = 87 (для max_positions=1)
     
     Action Space:
-    - MultiDiscrete([3, 101]): 
-      - action[0]: 0=hold, 1=buy, 2=sell
-      - action[1]: sizing от 0% до 100% (в шагах по 1%)
+        - Discrete(3): [0=hold, 1=buy, 2=sell]
+        - Box(0, 1): sizing (доля от капитала)
     
     Reward:
-    - Rolling Sharpe Ratio (risk-adjusted returns)
-    - Penalty за комиссии и проскальзывание
+        - Rolling Sharpe ratio (риск-adjusted returns)
     """
     
-    metadata = {"render_modes": ["human"]}
+    metadata = {"render_modes": []}
     
     def __init__(
         self,
@@ -56,326 +41,369 @@ class CryptoTradingEnv(gym.Env):
         initial_capital: float = 1000.0,
         commission_bps: float = 8.0,
         slippage_bps: float = 5.0,
-        max_position_size: float = 1.0,
-        reward_window: int = 24,  # Rolling window для Sharpe (24 часа)
-        features_columns: list | None = None,
+        max_positions: int = 1,
+        sharpe_window: int = 30,
+        max_position_size: float = 0.20,  # Максимум 20% капитала
+        min_position_size: float = 0.01,  # Минимум 1%
     ):
         """
         Args:
-            df: DataFrame с историческими данными (цены + фичи)
+            df: DataFrame с OHLCV + features (должен содержать колонки: close, ret_1, ...)
             initial_capital: Начальный капитал
-            commission_bps: Комиссии в базисных пунктах
-            slippage_bps: Проскальзывание в базисных пунктах
-            max_position_size: Максимальный размер позиции (доля капитала)
-            reward_window: Размер окна для расчёта Sharpe
-            features_columns: Список колонок с фичами
+            commission_bps: Комиссия в basis points
+            slippage_bps: Проскальзывание в basis points
+            max_positions: Максимум одновременных позиций
+            sharpe_window: Окно для расчёта Sharpe
+            max_position_size: Максимальный размер позиции (доля от капитала)
+            min_position_size: Минимальный размер позиции
         """
         super().__init__()
         
         self.df = df.reset_index(drop=True)
         self.initial_capital = initial_capital
-        self.commission_rate = commission_bps / 10000.0
-        self.slippage_rate = slippage_bps / 10000.0
+        self.commission_bps = commission_bps
+        self.slippage_bps = slippage_bps
+        self.max_positions = max_positions
+        self.sharpe_window = sharpe_window
         self.max_position_size = max_position_size
-        self.reward_window = reward_window
+        self.min_position_size = min_position_size
         
-        # Определяем колонки с фичами
-        if features_columns is None:
-            # Автоматически берём все колонки кроме служебных
-            exclude_cols = ['timestamp', 'close', 'open', 'high', 'low', 'volume', 'future_ret', 'y']
-            self.features_columns = [c for c in df.columns if c not in exclude_cols]
-        else:
-            self.features_columns = features_columns
+        # Проверка обязательных колонок
+        required_cols = ["close"]
+        missing = [c for c in required_cols if c not in self.df.columns]
+        if missing:
+            raise ValueError(f"Missing required columns: {missing}")
         
-        self.n_features = len(self.features_columns)
+        # Извлечение фич (все колонки кроме служебных)
+        exclude_cols = ["open", "high", "low", "close", "volume", "timestamp"]
+        self.feature_cols = [c for c in self.df.columns if c not in exclude_cols]
         
-        # Action space: [action_type (0=hold, 1=buy, 2=sell), sizing (0-100%)]
-        self.action_space = spaces.MultiDiscrete([3, 101])
+        if not self.feature_cols:
+            raise ValueError("No feature columns found in DataFrame")
         
-        # Observation space: features + equity metrics + position info + risk metrics
-        # Features (78+) + 6 meta metrics
-        obs_dim = self.n_features + 6
+        logger.info(f"Initialized RL env with {len(self.feature_cols)} features")
+        
+        # Нормализация фич (z-score)
+        for col in self.feature_cols:
+            if self.df[col].std() > 0:
+                self.df[col] = (self.df[col] - self.df[col].mean()) / self.df[col].std()
+            else:
+                self.df[col] = 0.0
+        
+        # Action space: MultiDiscrete([3, 20]) → [direction, sizing_decile]
+        # direction: 0=hold, 1=buy, 2=sell
+        # sizing: 0-19 → 1% to 20% (дискретизация для простоты)
+        self.action_space = spaces.MultiDiscrete([3, 20])
+        
+        # Observation space
+        obs_size = (
+            1 +  # equity
+            5 * self.max_positions +  # positions
+            len(self.feature_cols) +  # features
+            3  # risk metrics
+        )
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(obs_dim,),
+            shape=(obs_size,),
             dtype=np.float32
         )
         
-        # Внутреннее состояние
+        # State variables
         self.current_step = 0
         self.equity = initial_capital
-        self.cash = initial_capital
-        self.position = 0.0  # Количество монет
-        self.entry_price = 0.0
-        self.max_equity = initial_capital
+        self.positions = []  # List of dicts: {symbol, direction, size, entry_price, entry_step}
+        self.equity_history = [initial_capital]
         self.returns_history = []
+        self.trades_history = []
         
-        logger.info(f"[rl_env] Initialized CryptoTradingEnv: {len(df)} steps, {self.n_features} features")
-    
     def reset(
         self,
-        *,
         seed: Optional[int] = None,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[np.ndarray, Dict]:
-        """
-        Сброс environment в начальное состояние.
-        
-        Returns:
-            observation: Начальное состояние
-            info: Дополнительная информация
-        """
+        options: Optional[Dict[str, Any]] = None
+    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """Сброс окружения."""
         super().reset(seed=seed)
         
         self.current_step = 0
         self.equity = self.initial_capital
-        self.cash = self.initial_capital
-        self.position = 0.0
-        self.entry_price = 0.0
-        self.max_equity = self.initial_capital
+        self.positions = []
+        self.equity_history = [self.initial_capital]
         self.returns_history = []
+        self.trades_history = []
         
-        observation = self._get_observation()
+        obs = self._get_observation()
         info = self._get_info()
         
-        return observation, info
+        return obs, info
     
-    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
         """
-        Выполнить действие в environment.
+        Выполнение шага.
         
         Args:
-            action: [action_type, sizing]
-                - action_type: 0=hold, 1=buy, 2=sell
-                - sizing: 0-100 (процент капитала)
+            action: [direction, sizing_decile]
         
         Returns:
-            observation: Новое состояние
-            reward: Награда
-            terminated: Эпизод завершён (нормально)
-            truncated: Эпизод обрезан (по времени)
-            info: Дополнительная информация
+            observation, reward, terminated, truncated, info
         """
-        action_type = int(action[0])
-        sizing_pct = float(action[1]) / 100.0  # 0-100 → 0.0-1.0
-        sizing_pct = np.clip(sizing_pct, 0.0, self.max_position_size)
+        direction = int(action[0])  # 0=hold, 1=buy, 2=sell
+        sizing_decile = int(action[1])  # 0-19
+        sizing_fraction = (sizing_decile + 1) * 0.01  # 1% to 20%
         
-        # Получаем текущую цену
-        current_price = float(self.df.loc[self.current_step, 'close'])
+        # Клиппинг sizing
+        sizing_fraction = np.clip(sizing_fraction, self.min_position_size, self.max_position_size)
         
-        # Выполняем действие
-        reward = self._execute_action(action_type, sizing_pct, current_price)
+        # Текущая цена
+        current_price = self.df.loc[self.current_step, "close"]
         
-        # Переходим к следующему шагу
+        # Обновление открытых позиций (unrealized PnL)
+        self._update_positions(current_price)
+        
+        # Выполнение действия
+        if direction == 1:  # Buy
+            self._execute_trade("buy", sizing_fraction, current_price)
+        elif direction == 2:  # Sell
+            self._execute_trade("sell", sizing_fraction, current_price)
+        # direction == 0 → hold, ничего не делаем
+        
+        # Переход к следующему шагу
         self.current_step += 1
         
-        # Проверяем завершение
-        terminated = False  # Не завершаем досрочно (можно добавить условия банкротства)
-        truncated = self.current_step >= len(self.df) - 1
+        # Проверка завершения эпизода
+        terminated = self.current_step >= len(self.df) - 1
+        truncated = False
         
-        observation = self._get_observation()
-        info = self._get_info()
-        
-        return observation, reward, terminated, truncated, info
-    
-    def _execute_action(self, action_type: int, sizing_pct: float, price: float) -> float:
-        """
-        Выполнить торговое действие и вернуть reward.
-        
-        Args:
-            action_type: 0=hold, 1=buy, 2=sell
-            sizing_pct: Размер позиции (доля капитала)
-            price: Текущая цена
-        
-        Returns:
-            reward: Награда за действие
-        """
-        old_equity = self.equity
-        
-        if action_type == 1:  # BUY
-            # Закрываем короткую позицию если была
-            if self.position < 0:
-                self._close_position(price)
-            
-            # Открываем длинную позицию
-            target_value = self.equity * sizing_pct
-            commission = target_value * (self.commission_rate + self.slippage_rate)
-            buy_power = target_value - commission
-            
-            if buy_power > 0:
-                coins_to_buy = buy_power / price
-                self.position += coins_to_buy
-                self.cash -= target_value
-                self.entry_price = price
-        
-        elif action_type == 2:  # SELL
-            # Закрываем длинную позицию если была
-            if self.position > 0:
-                self._close_position(price)
-            
-            # Открываем короткую позицию (для крипто это сложно, но для симуляции OK)
-            target_value = self.equity * sizing_pct
-            commission = target_value * (self.commission_rate + self.slippage_rate)
-            sell_power = target_value - commission
-            
-            if sell_power > 0:
-                coins_to_sell = sell_power / price
-                self.position -= coins_to_sell
-                self.cash += sell_power
-                self.entry_price = price
-        
-        # action_type == 0 (HOLD) - ничего не делаем
-        
-        # Обновляем equity
-        position_value = self.position * price
-        self.equity = self.cash + position_value
-        self.max_equity = max(self.max_equity, self.equity)
-        
-        # Расчёт return
-        equity_return = (self.equity - old_equity) / old_equity if old_equity > 0 else 0.0
-        self.returns_history.append(equity_return)
-        
-        # Reward: Rolling Sharpe Ratio
+        # Расчёт reward
         reward = self._calculate_reward()
         
-        return reward
+        # Обновление equity history
+        self.equity_history.append(self.equity)
+        
+        # Observation и info
+        obs = self._get_observation()
+        info = self._get_info()
+        
+        return obs, reward, terminated, truncated, info
     
-    def _close_position(self, price: float):
-        """Закрыть текущую позицию."""
-        if self.position == 0:
-            return
+    def _execute_trade(self, direction: str, sizing_fraction: float, price: float) -> None:
+        """Выполнить сделку."""
+        # Проверка лимита позиций
+        if len(self.positions) >= self.max_positions and direction in ["buy", "sell"]:
+            # Закрыть старую позицию перед открытием новой
+            if self.positions:
+                self._close_position(self.positions[0], price)
         
-        position_value = abs(self.position) * price
-        commission = position_value * self.commission_rate
+        # Расчёт размера позиции
+        position_value = self.equity * sizing_fraction
         
-        if self.position > 0:
-            # Закрываем длинную позицию
-            proceeds = position_value - commission
-            self.cash += proceeds
-        else:
-            # Закрываем короткую позицию
-            cost = position_value + commission
-            self.cash -= cost
+        # Комиссия и проскальзывание
+        total_cost_bps = self.commission_bps + self.slippage_bps
+        effective_price = price * (1 + total_cost_bps / 10000) if direction == "buy" else price * (1 - total_cost_bps / 10000)
         
-        self.position = 0.0
-        self.entry_price = 0.0
+        # Размер позиции в монетах
+        size = position_value / effective_price
+        
+        # Открытие позиции
+        pos = {
+            "symbol": "CRYPTO",  # Generic
+            "direction": direction,
+            "size": size,
+            "entry_price": effective_price,
+            "entry_step": self.current_step,
+        }
+        self.positions.append(pos)
+        
+        # Вычитание комиссии из equity
+        commission = position_value * (self.commission_bps / 10000)
+        self.equity -= commission
+        
+        logger.debug(f"Step {self.current_step}: {direction.upper()} {size:.4f} @ {effective_price:.2f} (equity={self.equity:.2f})")
+    
+    def _close_position(self, position: Dict, current_price: float) -> None:
+        """Закрыть позицию."""
+        entry_price = position["entry_price"]
+        size = position["size"]
+        direction = position["direction"]
+        
+        # Комиссия при закрытии
+        total_cost_bps = self.commission_bps + self.slippage_bps
+        exit_price = current_price * (1 - total_cost_bps / 10000) if direction == "buy" else current_price * (1 + total_cost_bps / 10000)
+        
+        # PnL
+        if direction == "buy":
+            pnl = (exit_price - entry_price) * size
+        else:  # sell (short)
+            pnl = (entry_price - exit_price) * size
+        
+        # Обновление equity
+        self.equity += pnl
+        
+        # Комиссия при закрытии
+        commission = size * exit_price * (self.commission_bps / 10000)
+        self.equity -= commission
+        
+        # Логирование сделки
+        self.trades_history.append({
+            "entry_step": position["entry_step"],
+            "exit_step": self.current_step,
+            "direction": direction,
+            "entry_price": entry_price,
+            "exit_price": exit_price,
+            "size": size,
+            "pnl": pnl,
+            "commission": commission,
+        })
+        
+        # Удаление из позиций
+        self.positions.remove(position)
+        
+        logger.debug(f"Step {self.current_step}: CLOSE {direction.upper()} @ {exit_price:.2f} PnL={pnl:.2f}")
+    
+    def _update_positions(self, current_price: float) -> None:
+        """Обновить нереализованный PnL для открытых позиций."""
+        total_unrealized_pnl = 0.0
+        
+        for pos in self.positions:
+            entry_price = pos["entry_price"]
+            size = pos["size"]
+            direction = pos["direction"]
+            
+            if direction == "buy":
+                unrealized_pnl = (current_price - entry_price) * size
+            else:  # sell (short)
+                unrealized_pnl = (entry_price - current_price) * size
+            
+            total_unrealized_pnl += unrealized_pnl
+        
+        # Обновление equity с учётом unrealized PnL
+        # (но не модифицируем self.equity напрямую, это только для отображения)
+        # Для расчёта reward используем realized equity
     
     def _calculate_reward(self) -> float:
         """
-        Расчёт reward на основе Rolling Sharpe Ratio.
+        Расчёт reward: Rolling Sharpe Ratio.
         
-        Sharpe = (mean_return / std_return) * sqrt(window_size)
-        
-        Returns:
-            reward: Sharpe ratio (risk-adjusted returns)
+        Reward = (mean_return / std_return) * sqrt(252) если std > 0, иначе 0
         """
-        if len(self.returns_history) < 2:
+        if len(self.equity_history) < 2:
             return 0.0
         
-        # Используем последние reward_window returns
-        recent_returns = self.returns_history[-self.reward_window:]
+        # Возвраты
+        returns = pd.Series(self.equity_history).pct_change().dropna()
         
-        mean_ret = np.mean(recent_returns)
-        std_ret = np.std(recent_returns)
+        if len(returns) < self.sharpe_window:
+            # Недостаточно данных для расчёта Sharpe
+            # Используем простой return
+            ret = (self.equity - self.equity_history[-2]) / self.equity_history[-2]
+            return ret * 100  # Масштабирование
         
-        if std_ret == 0 or np.isnan(std_ret):
-            return 0.0
+        # Rolling window
+        recent_returns = returns.iloc[-self.sharpe_window:]
         
-        # Sharpe ratio (annualized для крипто = 24*365)
-        sharpe = (mean_ret / std_ret) * np.sqrt(len(recent_returns))
+        mean_ret = recent_returns.mean()
+        std_ret = recent_returns.std()
         
-        return float(sharpe)
+        if std_ret > 0:
+            sharpe = (mean_ret / std_ret) * np.sqrt(252)  # Annualized
+        else:
+            sharpe = 0.0
+        
+        return sharpe
     
     def _get_observation(self) -> np.ndarray:
-        """
-        Получить текущее observation (state).
+        """Получить observation."""
+        obs = []
         
-        Returns:
-            observation: [features, equity_pct, max_equity_pct, drawdown, 
-                          position_ratio, volatility, rolling_sharpe]
-        """
-        if self.current_step >= len(self.df):
-            self.current_step = len(self.df) - 1
+        # 1. Equity (normalized)
+        obs.append(self.equity / self.initial_capital)
         
-        # Features
-        features = self.df.loc[self.current_step, self.features_columns].values.astype(np.float32)
-        features = np.nan_to_num(features, nan=0.0, posinf=0.0, neginf=0.0)
+        # 2. Open positions (padded)
+        for i in range(self.max_positions):
+            if i < len(self.positions):
+                pos = self.positions[i]
+                current_price = self.df.loc[self.current_step, "close"]
+                entry_price = pos["entry_price"]
+                size = pos["size"]
+                direction_encoded = 1.0 if pos["direction"] == "buy" else -1.0
+                
+                # Unrealized PnL
+                if pos["direction"] == "buy":
+                    unrealized_pnl = (current_price - entry_price) * size
+                else:
+                    unrealized_pnl = (entry_price - current_price) * size
+                
+                obs.extend([
+                    direction_encoded,
+                    size / self.equity,  # Normalized size
+                    entry_price / current_price,  # Price ratio
+                    unrealized_pnl / self.equity,  # PnL ratio
+                    (self.current_step - pos["entry_step"]) / 100,  # Hold time normalized
+                ])
+            else:
+                # Padding
+                obs.extend([0.0, 0.0, 1.0, 0.0, 0.0])
         
-        # Meta metrics
-        equity_pct = (self.equity / self.initial_capital) - 1.0  # % изменение
-        max_equity_pct = (self.max_equity / self.initial_capital) - 1.0
-        drawdown = (self.equity - self.max_equity) / self.max_equity if self.max_equity > 0 else 0.0
+        # 3. Features (уже нормализованы)
+        features = self.df.loc[self.current_step, self.feature_cols].values
+        obs.extend(features)
         
-        # Position ratio (доля капитала в позиции)
-        current_price = float(self.df.loc[self.current_step, 'close'])
-        position_value = self.position * current_price
-        position_ratio = position_value / self.equity if self.equity > 0 else 0.0
-        
-        # Volatility (std последних returns)
-        if len(self.returns_history) >= 5:
-            volatility = float(np.std(self.returns_history[-20:]))
+        # 4. Risk metrics
+        # Volatility (rolling std of returns)
+        if len(self.equity_history) >= 20:
+            returns = pd.Series(self.equity_history).pct_change().dropna()
+            volatility = returns.iloc[-20:].std() * np.sqrt(252)  # Annualized
         else:
             volatility = 0.0
         
-        # Rolling Sharpe
-        rolling_sharpe = self._calculate_reward()
+        # Max Drawdown
+        if len(self.equity_history) > 1:
+            peak = max(self.equity_history)
+            current = self.equity_history[-1]
+            max_dd = (peak - current) / peak if peak > 0 else 0.0
+        else:
+            max_dd = 0.0
         
-        meta_metrics = np.array([
-            equity_pct,
-            max_equity_pct,
-            drawdown,
-            position_ratio,
-            volatility,
-            rolling_sharpe,
-        ], dtype=np.float32)
+        # Sharpe (последний расчёт)
+        if len(self.equity_history) >= self.sharpe_window:
+            returns = pd.Series(self.equity_history).pct_change().dropna()
+            recent = returns.iloc[-self.sharpe_window:]
+            sharpe = (recent.mean() / recent.std()) * np.sqrt(252) if recent.std() > 0 else 0.0
+        else:
+            sharpe = 0.0
         
-        observation = np.concatenate([features, meta_metrics])
+        obs.extend([volatility, max_dd, sharpe])
         
-        return observation
+        return np.array(obs, dtype=np.float32)
     
-    def _get_info(self) -> Dict:
-        """Получить дополнительную информацию о состоянии."""
+    def _get_info(self) -> Dict[str, Any]:
+        """Дополнительная информация."""
         return {
             "step": self.current_step,
             "equity": self.equity,
-            "cash": self.cash,
-            "position": self.position,
-            "entry_price": self.entry_price,
-            "max_equity": self.max_equity,
-            "drawdown": (self.equity - self.max_equity) / self.max_equity if self.max_equity > 0 else 0.0,
+            "positions": len(self.positions),
+            "total_trades": len(self.trades_history),
         }
     
-    def render(self):
-        """Визуализация состояния (для отладки)."""
-        info = self._get_info()
-        print(f"Step: {info['step']}, Equity: ${info['equity']:.2f}, Position: {info['position']:.4f}, DD: {info['drawdown']:.2%}")
+    def render(self) -> None:
+        """Отрисовка (не используется)."""
+        pass
 
 
-# Вспомогательная функция для создания окружения из DataFrame
 def create_trading_env(
     df: pd.DataFrame,
     initial_capital: float = 1000.0,
-    commission_bps: float = 8.0,
     **kwargs
 ) -> CryptoTradingEnv:
     """
-    Создать CryptoTradingEnv из DataFrame.
+    Factory function для создания окружения.
     
     Args:
-        df: DataFrame с ценами и фичами
+        df: DataFrame с OHLCV + features
         initial_capital: Начальный капитал
-        commission_bps: Комиссии
-        **kwargs: Дополнительные параметры для CryptoTradingEnv
+        **kwargs: Дополнительные параметры (commission_bps, slippage_bps, etc.)
     
     Returns:
-        env: Готовый environment
+        CryptoTradingEnv instance
     """
-    env = CryptoTradingEnv(
-        df=df,
-        initial_capital=initial_capital,
-        commission_bps=commission_bps,
-        **kwargs
-    )
-    return env
-
+    return CryptoTradingEnv(df=df, initial_capital=initial_capital, **kwargs)

@@ -126,3 +126,62 @@ def fetch_and_store_prices(db: Session, exchange: str, symbol: str, timeframe: s
     # отфильтруем NaN/пустые
     rows = [r for r in rows if all(math.isfinite(x) for x in r)]
     return _insert_prices(db, exchange, symbol, timeframe, rows)
+
+
+def fetch_ohlcv(
+    exchange: str,
+    symbol: str,
+    timeframe: str,
+    since: str | None = None,
+    limit: int = 500,
+) -> "pd.DataFrame":
+    """
+    Загрузка OHLCV данных с биржи (БЕЗ сохранения в БД).
+    
+    Args:
+        exchange: Биржа (binance, bybit)
+        symbol: Символ (BTC/USDT)
+        timeframe: Таймфрейм (1h, 4h, 1d)
+        since: Дата начала (YYYY-MM-DD), опционально
+        limit: Количество свечей
+    
+    Returns:
+        DataFrame с колонками: timestamp, open, high, low, close, volume
+    """
+    import pandas as pd
+    from datetime import datetime
+    
+    exchange = (exchange or "").lower()
+    symbol = symbol.upper()
+    timeframe = timeframe.lower()
+    limit = int(limit)
+    
+    if exchange == "binance":
+        rows = _fetch_binance(symbol, timeframe, limit)
+    elif exchange == "bybit":
+        rows = _fetch_bybit(symbol, timeframe, limit)
+    else:
+        raise ValueError(f"Unsupported exchange: {exchange}")
+    
+    # Фильтрация NaN
+    rows = [r for r in rows if all(math.isfinite(x) for x in r)]
+    
+    if not rows:
+        return pd.DataFrame(columns=["timestamp", "open", "high", "low", "close", "volume"])
+    
+    # Конвертация в DataFrame
+    df = pd.DataFrame(rows, columns=["ts_ms", "open", "high", "low", "close", "volume"])
+    
+    # Timestamp в datetime
+    df["timestamp"] = pd.to_datetime(df["ts_ms"], unit="ms")
+    df = df.drop(columns=["ts_ms"])
+    
+    # Фильтрация по дате
+    if since:
+        since_dt = pd.to_datetime(since)
+        df = df[df["timestamp"] >= since_dt]
+    
+    # Сортировка по времени
+    df = df.sort_values("timestamp").reset_index(drop=True)
+    
+    return df

@@ -363,3 +363,117 @@ def build_dataset(
     print(f"[Features] Dataset built: {len(df)} rows x {len(feature_cols)} features")
     print(f"[Features] Technical: 25, News: {2 + len(TAGS)*2}, OnChain: 9, Macro: 7, Social: 5")
     return df, feature_cols
+
+
+def build_dataset_for_rl(
+    prices_df: pd.DataFrame,
+    exchange: str,
+    symbol: str,
+    timeframe: str,
+) -> pd.DataFrame:
+    """
+    Построение датасета для RL-окружения (без целевой переменной).
+    
+    Args:
+        prices_df: DataFrame с OHLCV (колонки: open, high, low, close, volume, timestamp)
+        exchange: Биржа (для логирования)
+        symbol: Символ (для логирования)
+        timeframe: Таймфрейм (для логирования)
+    
+    Returns:
+        DataFrame с фичами (close + все технические/новостные/onchain/macro/social)
+    """
+    print(f"[RL] Building dataset for {exchange} {symbol} {timeframe}")
+    
+    # Используем build_dataset с фиктивной БД (None)
+    # Но поскольку build_dataset требует БД, создадим упрощённую версию
+    
+    df = prices_df.copy()
+    
+    # Проверка обязательных колонок
+    required = ["open", "high", "low", "close", "volume"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
+    
+    # Установка timestamp как индекс
+    if "timestamp" in df.columns and df.index.name != "timestamp":
+        df = df.set_index("timestamp")
+    
+    # --- Ценовые фичи ---
+    df["ret_1"] = df["close"].pct_change(1)
+    df["ret_3"] = df["close"].pct_change(3)
+    df["ret_6"] = df["close"].pct_change(6)
+    df["ret_12"] = df["close"].pct_change(12)
+    df["ret_24"] = df["close"].pct_change(24)
+    df["vol_norm"] = df["volume"] / df["volume"].rolling(24).mean()
+    
+    # --- Технические индикаторы ---
+    df["rsi_14"] = _rsi(df["close"], 14)
+    mid, upper, lower = _bbands(df["close"], 20, 2.0)
+    df["bb_pct_20_2"] = (df["close"] - lower) / (upper - lower)
+    df["bb_width_20_2"] = (upper - lower) / mid
+    
+    macd, macd_signal, macd_hist = _macd(df["close"])
+    df["macd"] = macd
+    df["macd_signal"] = macd_signal
+    df["macd_hist"] = macd_hist
+    
+    df["atr_14"] = _atr(df["high"], df["low"], df["close"], 14)
+    df["atr_pct"] = df["atr_14"] / df["close"]
+    df["adx_14"] = _adx(df["high"], df["low"], df["close"], 14)
+    
+    stoch_k, stoch_d = _stochastic(df["high"], df["low"], df["close"])
+    df["stoch_k"] = stoch_k
+    df["stoch_d"] = stoch_d
+    
+    df["williams_r"] = _williams_r(df["high"], df["low"], df["close"])
+    df["cci_20"] = _cci(df["high"], df["low"], df["close"])
+    
+    df["ema_9"] = df["close"].ewm(span=9).mean()
+    df["ema_21"] = df["close"].ewm(span=21).mean()
+    df["ema_50"] = df["close"].ewm(span=50).mean()
+    df["ema_cross_9_21"] = (df["ema_9"] > df["ema_21"]).astype(float)
+    df["ema_cross_21_50"] = (df["ema_21"] > df["ema_50"]).astype(float)
+    
+    # --- Новостные фичи (заглушки, т.к. нет БД) ---
+    df["news_cnt_6"] = 0.0
+    df["news_cnt_24"] = 0.0
+    df["sent_mean_6"] = 0.0
+    df["sent_mean_24"] = 0.0
+    
+    for tag in TAGS:
+        df[f"tag_{tag}_6"] = 0.0
+        df[f"tag_{tag}_24"] = 0.0
+    
+    # --- On-chain фичи (заглушки, опционально можно загружать) ---
+    onchain_keys = [
+        "onchain_exchange_netflow", "onchain_exchange_inflow", "onchain_exchange_outflow",
+        "onchain_active_addresses", "onchain_new_addresses", "onchain_sopr",
+        "onchain_mvrv", "onchain_nupl", "onchain_puell_multiple",
+    ]
+    for key in onchain_keys:
+        df[key] = 0.0
+    
+    # --- Макро фичи (заглушки) ---
+    macro_keys = [
+        "macro_fear_greed", "macro_fear_greed_norm", "macro_fed_rate",
+        "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread", "macro_dxy",
+    ]
+    for key in macro_keys:
+        df[key] = 0.0
+    
+    # --- Social фичи (заглушки) ---
+    social_keys = [
+        "social_twitter_mentions", "social_twitter_sentiment", "social_reddit_posts",
+        "social_reddit_sentiment", "social_google_trends",
+    ]
+    for key in social_keys:
+        df[key] = 0.0
+    
+    # Удаление NaN (из-за pct_change, EMA и т.д.)
+    df = df.dropna()
+    
+    print(f"[RL] Dataset ready: {len(df)} rows, {len(df.columns)} columns")
+    
+    return df
