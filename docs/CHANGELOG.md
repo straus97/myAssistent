@@ -11,6 +11,131 @@
 
 ---
 
+## [2025-10-11 вечер] - Инфраструктура обучения моделей и MLflow полная интеграция
+
+### Добавлено
+
+- **Скрипт обучения и анализа (scripts/train_and_analyze.py):**
+  - ✅ Автоматическое обучение XGBoost модели с логированием в MLflow
+  - ✅ Feature importance анализ (топ-20 фич с визуализацией)
+  - ✅ Категоризация фич по типам: Price, Technical, News, OnChain, Macro, Social
+  - ✅ Сравнение с baseline (метрики: accuracy, ROC AUC, Sharpe, Total Return)
+  - ✅ Сохранение графиков в `artifacts/analysis/`:
+    - `feature_importance_top20.png` - топ-20 фич с цветовой кодировкой
+    - `feature_importance_by_category.png` - агрегация по категориям
+    - `feature_importance.json` - JSON отчёт
+  - ✅ Поддержка matplotlib без GUI (работает в headless окружении)
+
+- **MLflow Model Registry полная интеграция:**
+  - ✅ **src/mlflow_registry.py** - модуль работы с Model Registry:
+    - `get_model_by_stage()` - получить модель из Production/Staging/Archived
+    - `promote_model_to_stage()` - перевести модель на новую стадию с архивацией предыдущих
+    - `list_registered_models()` - список всех моделей с версиями
+    - `get_model_info()` - детальная информация о модели (все версии, метрики)
+    - `compare_model_versions()` - сравнение двух версий по метрикам (Production vs Staging)
+  
+  - ✅ **src/routers/mlflow_registry.py** - REST API для Model Registry:
+    - `GET /mlflow/status` - проверка статус MLflow интеграции
+    - `GET /mlflow/models` - список всех зарегистрированных моделей
+    - `GET /mlflow/models/{name}` - детальная информация о модели
+    - `GET /mlflow/models/{name}/stage/{stage}` - URI модели из указанной стадии
+    - `POST /mlflow/models/promote` - перевести модель на Production/Staging/Archived
+    - `GET /mlflow/models/{name}/compare` - сравнить две версии (по умолчанию Production vs Staging)
+  
+  - ✅ **Обновлён src/modeling.py:**
+    - Автоматическая регистрация модели как `xgboost_trading_model` в Model Registry
+    - Логирование тегов: stage, n_features, model_type
+    - Расширенное логирование run_id и информации о регистрации
+    - Логирование feature importance как словаря
+
+  - ✅ **Подключён роутер в src/main.py:**
+    - Импорт `mlflow_registry` в список роутеров
+    - `app.include_router(mlflow_registry.router)` добавлен после rl.router
+
+- **Датасет с 69 фичами:**
+  - Технические: 24 фичи (ret_1-24, vol_norm, RSI, BB, MACD, ATR, ADX, Stochastic, Williams, CCI, EMA crossovers)
+  - Новостные: 24 фичи (news_cnt, sent_mean + 11 тегов × 2 окна [6h, 24h])
+  - On-chain: 9 фич (exchange flows, SOPR, MVRV, NUPL, Puell Multiple)
+  - Macro: 7 фич (Fear & Greed Index, FRED API структура)
+  - Social: 5 фич (Twitter, Reddit, Google Trends структура)
+
+### Улучшено
+
+- **MLflow интеграция:**
+  - Добавлено логирование run_id для отслеживания экспериментов
+  - Улучшено логирование при неуспешной регистрации модели
+  - Добавлены информационные сообщения о необходимости использовать MLflow UI для promote
+
+### Документация
+
+- ✅ Обновлён **docs/NEXT_STEPS.md:**
+  - Задача #3 отмечена как завершённая (инфраструктура готова)
+  - Задача #4 отмечена как полностью реализована (MLflow tracking + Model Registry)
+  - Добавлены подробные инструкции по использованию scripts/train_and_analyze.py
+  - Добавлены примеры работы с Model Registry через API
+  - Обновлён раздел "Завершено (2025-10-11 вечер)" с деталями реализации
+
+### Технические детали
+
+- **Linter:** все изменённые файлы проходят проверку без ошибок
+- **Архитектура:**
+  - Model Registry функционал изолирован в отдельный модуль `src/mlflow_registry.py`
+  - API endpoints изолированы в `src/routers/mlflow_registry.py`
+  - Обратная совместимость с существующим кодом сохранена
+  - MLflow интеграция опциональна (работает только если `MLFLOW_TRACKING_URI` в .env)
+
+### Для пользователя
+
+**Чтобы начать использовать:**
+
+1. Добавить в `.env`:
+   ```
+   MLFLOW_TRACKING_URI=http://localhost:5000
+   ```
+
+2. Запустить MLflow через Docker:
+   ```bash
+   docker-compose up -d mlflow
+   ```
+
+3. Обучить модель:
+   ```bash
+   # Через скрипт (рекомендуется)
+   python scripts/train_and_analyze.py
+   
+   # Или через API
+   POST /model/train
+   {
+     "exchange": "bybit",
+     "symbol": "BTC/USDT",
+     "timeframe": "1h"
+   }
+   ```
+
+4. Проверить результаты:
+   - MLflow UI: http://localhost:5000
+   - Графики: `artifacts/analysis/`
+   - Метрики: `artifacts/metrics.json`
+
+5. Перевести модель в Production:
+   ```bash
+   POST /mlflow/models/promote
+   {
+     "model_name": "xgboost_trading_model",
+     "version": 5,
+     "stage": "Production",
+     "archive_existing": true
+   }
+   ```
+
+### Следующие шаги
+
+- ⏳ Запустить обучение модели и проанализировать feature importance
+- ⏳ PostgreSQL миграция (тестирование)
+- ⏳ Next.js UI компоненты (dashboard, equity chart)
+
+---
+
 ## [2025-10-11 18:00] - Docker Desktop настройка и полная документация
 
 ### Добавлено

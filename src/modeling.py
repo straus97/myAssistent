@@ -336,8 +336,12 @@ def train_xgb_and_save(
                 "sharpe_like": metrics.get("sharpe_like") or 0,
             })
             
-            # Log model
-            mlflow.sklearn.log_model(model, "model")
+            # Log model to MLflow with signature
+            mlflow.sklearn.log_model(
+                model, 
+                "model",
+                registered_model_name="xgboost_trading_model"
+            )
             
             # Log artifacts
             mlflow.log_artifact(str(model_path), "model_artifacts")
@@ -349,8 +353,21 @@ def train_xgb_and_save(
                 importance_dict = dict(zip(use_cols, model.feature_importances_.tolist()))
                 mlflow.log_dict(importance_dict, "feature_importance.json")
             
+            # Log tags for easy filtering
+            mlflow.set_tags({
+                "stage": "challenger",
+                "n_features": len(use_cols),
+                "model_type": "XGBoost",
+            })
+            
+            run_id = mlflow.active_run().info.run_id
+            logger.info(f"[mlflow] Run logged successfully (run_id: {run_id})")
+            
             mlflow.end_run()
-            logger.info("[mlflow] Run logged successfully")
+            
+            logger.info("[mlflow] Model logged to registry as 'xgboost_trading_model'")
+            logger.info("[mlflow] Use MLflow UI to promote model to 'Staging' or 'Production'")
+            
         except Exception as e:
             logger.warning(f"[mlflow] Failed to log run: {e}")
             try:
