@@ -19,7 +19,7 @@ from src.notify import maybe_send_signal_notification
 from src.utils import _volatility_guard
 
 
-router = APIRouter(prefix="/signal", tags=["Signal"])
+router = APIRouter(prefix="/signals", tags=["Signals"])
 
 
 # ===== Вспомогательные функции =====

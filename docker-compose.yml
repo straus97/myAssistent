@@ -24,26 +24,27 @@ services:
       - myassistent_network
 
   pgbouncer:
-    image: edoburu/pgbouncer:1.21.0
+    image: bitnami/pgbouncer:1.21.0
     container_name: myassistent_pgbouncer
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://myassistent:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/myassistent
-      POOL_MODE: transaction
-      MAX_CLIENT_CONN: 100
-      DEFAULT_POOL_SIZE: 20
-      MIN_POOL_SIZE: 5
-      RESERVE_POOL_SIZE: 5
-      RESERVE_POOL_TIMEOUT: 3
-      MAX_DB_CONNECTIONS: 50
-      SERVER_IDLE_TIMEOUT: 600
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_DATABASE: myassistent
+      POSTGRESQL_USERNAME: myassistent
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: 100
+      PGBOUNCER_DEFAULT_POOL_SIZE: 20
     ports:
-      - "6432:5432"
+      - "6432:6432"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - myassistent_network
+    profiles:
+      - production
 
   # Опционально: pgAdmin для визуального управления БД
   pgadmin:
