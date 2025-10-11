@@ -101,11 +101,14 @@ METRICS_ENABLED = False
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
     
-    if os.getenv("ENABLE_METRICS", "false").lower() in ("true", "1", "yes"):
+    # Включаем метрики по умолчанию (можно отключить через ENABLE_METRICS=false)
+    enable_metrics = os.getenv("ENABLE_METRICS", "true").lower() not in ("false", "0", "no")
+    
+    if enable_metrics:
         instrumentator = Instrumentator(
             should_group_status_codes=False,
             should_ignore_untemplated=True,
-            should_respect_env_var=False,  # Управляем вручную через проверку выше
+            should_respect_env_var=False,
             should_instrument_requests_inprogress=True,
             excluded_handlers=["/metrics"],
             inprogress_name="fastapi_inprogress",
@@ -116,7 +119,7 @@ try:
         METRICS_ENABLED = True
         print("[metrics] Prometheus metrics enabled at /metrics")
     else:
-        print("[metrics] ENABLE_METRICS not set to true, metrics disabled")
+        print("[metrics] Metrics disabled via ENABLE_METRICS=false")
 except ImportError:
     print("[metrics] prometheus-fastapi-instrumentator not installed, metrics disabled")
 except Exception as e:
