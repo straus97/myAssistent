@@ -97,27 +97,26 @@ app = _FastAPI(
 
 # ============== Prometheus Metrics ==============
 
+METRICS_ENABLED = False
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
     
-    instrumentator = Instrumentator(
-        should_group_status_codes=False,
-        should_ignore_untemplated=True,
-        should_respect_env_var=True,
-        should_instrument_requests_inprogress=True,
-        excluded_handlers=["/metrics"],
-        env_var_name="ENABLE_METRICS",
-        inprogress_name="fastapi_inprogress",
-        inprogress_labels=True,
-    )
-    
-    instrumentator.instrument(app)
-    
-    @app.on_event("startup")
-    async def _startup_metrics():
-        instrumentator.expose(app, endpoint="/metrics", include_in_schema=True)
-    
-    print("[metrics] Prometheus metrics enabled at /metrics")
+    if os.getenv("ENABLE_METRICS", "false").lower() in ("true", "1", "yes"):
+        instrumentator = Instrumentator(
+            should_group_status_codes=False,
+            should_ignore_untemplated=True,
+            should_respect_env_var=False,  # Управляем вручную через проверку выше
+            should_instrument_requests_inprogress=True,
+            excluded_handlers=["/metrics"],
+            inprogress_name="fastapi_inprogress",
+            inprogress_labels=True,
+        )
+        
+        instrumentator.instrument(app).expose(app, endpoint="/metrics", include_in_schema=True)
+        METRICS_ENABLED = True
+        print("[metrics] Prometheus metrics enabled at /metrics")
+    else:
+        print("[metrics] ENABLE_METRICS not set to true, metrics disabled")
 except ImportError:
     print("[metrics] prometheus-fastapi-instrumentator not installed, metrics disabled")
 except Exception as e:
