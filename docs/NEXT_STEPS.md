@@ -145,6 +145,34 @@
     - ✅ Max DD: -7.1%, Outperformance: +139%
   - ✅ Git commits: c99a93b, 71a9cd2, 3611beb, a5e5ff9
 
+**Завершено (2025-10-11 15:00):**
+- ✅ **RL-агент (PPO) для динамического sizing (ЗАВЕРШЕНО):**
+  - ✅ src/rl_env.py - Custom Gym environment для торговли
+    - ✅ State space: equity + positions + 71 features + risk metrics
+    - ✅ Action space: direction (hold/buy/sell) + sizing (1-20%)
+    - ✅ Reward: Rolling Sharpe ratio (30-day window)
+  - ✅ src/rl_agent.py - PPO agent (Stable-Baselines3)
+    - ✅ Training: 50K timesteps, learning_rate=3e-4
+    - ✅ Inference: deterministic predictions
+    - ✅ Model saving: artifacts/rl_models/
+  - ✅ src/routers/rl.py - API endpoints
+    - ✅ POST /rl/train - обучение агента
+    - ✅ POST /rl/predict - inference с моделью
+    - ✅ POST /rl/performance - оценка производительности
+    - ✅ GET /rl/models - список обученных моделей
+  - ✅ Updated src/features.py - добавлена build_dataset_for_rl()
+  - ✅ Updated src/prices.py - добавлена fetch_ohlcv()
+  - ✅ **Тестирование на BTC/USDT 1h (3 месяца):**
+    - ✅ Total Return: -0.77%
+    - ✅ Sharpe: -1.13
+    - ✅ Win Rate: 25%
+    - ✅ Total Trades: 4
+  - ✅ **Сравнение с XGBoost:**
+    - ✅ XGBoost: +14.96% return, 1.12 Sharpe, 77.53% win rate
+    - ✅ RL требует больше обучения (500K-1M timesteps)
+    - ✅ Рекомендована гибридная модель (XGBoost direction + RL sizing)
+  - ✅ Git commit: 801f814
+
 ---
 
 ---
@@ -209,7 +237,9 @@ POST /backtest/run
 
 ---
 
-### 🤖 Задача #2: RL-агент для динамического sizing (3-4 часа)
+### ✅ Задача #2: RL-агент для динамического sizing (ЗАВЕРШЕНО 2025-10-11)
+
+**Статус:** ✅ ВЫПОЛНЕНО (2025-10-11 15:00, commit 801f814)
 
 **Цель:** Reinforcement Learning для оптимального sizing позиций.
 
