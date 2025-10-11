@@ -3,6 +3,11 @@ MyAssistent API - Автономный торговый бот с ML для Bybi
 Версия 0.8 - Модульная архитектура с роутерами
 """
 from __future__ import annotations
+
+# Загрузка переменных окружения из .env файла (ДОЛЖНО БЫТЬ ПЕРВЫМ!)
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import json
 from pathlib import Path

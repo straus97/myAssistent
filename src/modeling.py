@@ -10,6 +10,10 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 import joblib
 import logging
 
+# Загрузка переменных окружения из .env
+from dotenv import load_dotenv
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 # MLflow tracking (опционально)
