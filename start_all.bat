@@ -111,7 +111,8 @@ timeout /t 15 /nobreak >NUL
 
 REM === Запуск Backend ===
 echo [*] Запускаю Backend API → http://127.0.0.1:8000
-start "backend" /D "%CD%" ".\.venv\Scripts\python.exe" -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --log-level debug
+echo [*] MLFLOW_TRACKING_URI = %MLFLOW_TRACKING_URI%
+start "backend" /D "%CD%" cmd /k "set MLFLOW_TRACKING_URI=%MLFLOW_TRACKING_URI% && set ENABLE_METRICS=%ENABLE_METRICS% && set API_KEY=%API_KEY% && set DATABASE_URL=%DATABASE_URL% && .\.venv\Scripts\python.exe -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --log-level debug"
 
 timeout /t 3 /nobreak >NUL
 
