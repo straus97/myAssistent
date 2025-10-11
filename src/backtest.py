@@ -272,8 +272,8 @@ def run_vectorized_backtest(
     benchmark = compare_with_benchmark(df)
 
     # 10. Equity curve для визуализации
-    equity_curve = df[["timestamp", "equity", "benchmark_equity"]].copy()
-    equity_curve["timestamp"] = equity_curve["timestamp"].astype(str)
+    equity_curve = df[["equity", "benchmark_equity"]].copy()
+    equity_curve["timestamp"] = equity_curve.index.astype(str)
 
     logger.info(f"[backtest] Completed. Sharpe: {metrics['sharpe_ratio']:.2f}, Total Return: {metrics['total_return']:.2%}")
 
@@ -514,10 +514,10 @@ def extract_trades(df: pd.DataFrame, max_trades: int = 100) -> List[Dict]:
     for i, idx in enumerate(df.index):
         if entries[idx]:
             entry_pos = i
-            entry_time = df.loc[idx, "timestamp"]
+            entry_time = idx  # idx уже является timestamp (индекс DataFrame)
             entry_price = df.loc[idx, "close"]
         elif exits[idx] and entry_pos is not None:
-            exit_time = df.loc[idx, "timestamp"]
+            exit_time = idx  # idx уже является timestamp
             exit_price = df.loc[idx, "close"]
             pnl = (exit_price / entry_price) - 1.0
             duration = i - entry_pos
@@ -535,7 +535,7 @@ def extract_trades(df: pd.DataFrame, max_trades: int = 100) -> List[Dict]:
     
     # Открытая сделка в конце
     if entry_pos is not None:
-        exit_time = df.iloc[-1]["timestamp"]
+        exit_time = df.index[-1]  # Последний timestamp в индексе
         exit_price = df.iloc[-1]["close"]
         pnl = (exit_price / entry_price) - 1.0
         duration = len(df) - 1 - entry_pos
