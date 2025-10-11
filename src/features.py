@@ -357,6 +357,9 @@ def build_dataset(
     # Теперь dropna (timestamp уже не индекс, не будет потерян)
     df = df.dropna(subset=feature_cols + ["future_ret", "y"])
     
+    # Устанавливаем timestamp обратно как индекс (важно для работы с временными рядами)
+    df = df.set_index("timestamp")
+    
     print(f"[Features] Dataset built: {len(df)} rows x {len(feature_cols)} features")
     print(f"[Features] Technical: 25, News: {2 + len(TAGS)*2}, OnChain: 9, Macro: 7, Social: 5")
     return df, feature_cols

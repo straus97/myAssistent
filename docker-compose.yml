@@ -70,7 +70,7 @@ services:
     restart: unless-stopped
     command: >
       mlflow server
-      --backend-store-uri postgresql://myassistent:${POSTGRES_PASSWORD:-change_me_in_production}@postgres:5432/mlflow
+      --backend-store-uri file:///mlflow/backend
       --default-artifact-root /mlflow/artifacts
       --host 0.0.0.0
       --port 5000
@@ -78,9 +78,7 @@ services:
       - "5000:5000"
     volumes:
       - mlflow_artifacts:/mlflow/artifacts
-    depends_on:
-      postgres:
-        condition: service_healthy
+      - mlflow_backend:/mlflow/backend
     networks:
       - myassistent_network
     environment:
@@ -131,6 +129,8 @@ volumes:
   postgres_data:
     driver: local
   mlflow_artifacts:
+    driver: local
+  mlflow_backend:
     driver: local
   prometheus_data:
     driver: local
