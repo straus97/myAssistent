@@ -388,17 +388,22 @@ def calculate_drawdown(df: pd.DataFrame) -> Dict:
     
     # Длительность просадки (от пика до дна)
     peak_idx = equity[:max_dd_idx].idxmax()
-    dd_duration = max_dd_idx - peak_idx
+    
+    # Получаем позиционные индексы для вычисления длительности
+    peak_pos = equity.index.get_loc(peak_idx)
+    max_dd_pos = equity.index.get_loc(max_dd_idx)
+    dd_duration = max_dd_pos - peak_pos
     
     # Время восстановления (от дна до восстановления пика)
     peak_value = equity[peak_idx]
     recovery_idx = None
-    if max_dd_idx < len(equity) - 1:
+    if max_dd_pos < len(equity) - 1:
         future_equity = equity[max_dd_idx:]
         recovery_mask = future_equity >= peak_value
         if recovery_mask.any():
             recovery_idx = recovery_mask.idxmax()
-            recovery_time = recovery_idx - max_dd_idx
+            recovery_pos = equity.index.get_loc(recovery_idx)
+            recovery_time = recovery_pos - max_dd_pos
         else:
             recovery_time = None  # Ещё не восстановились
     else:
