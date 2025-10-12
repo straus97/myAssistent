@@ -171,7 +171,8 @@ def train_voting_ensemble(
         "cat_auc": cat_metrics["roc_auc"],
     }
     
-    logger.info(f"[Ensemble] Voting: Accuracy={acc:.4f}, AUC={auc:.4f if auc else 'N/A'}")
+    auc_str = f"{auc:.4f}" if auc else "N/A"
+    logger.info(f"[Ensemble] Voting: Accuracy={acc:.4f}, AUC={auc_str}")
     
     models = {
         "xgboost": xgb,
@@ -243,7 +244,8 @@ def train_stacking_ensemble(
         "cat_auc": cat_metrics["roc_auc"],
     }
     
-    logger.info(f"[Ensemble] Stacking: Accuracy={acc:.4f}, AUC={auc:.4f if auc else 'N/A'}")
+    auc_str = f"{auc:.4f}" if auc else "N/A"
+    logger.info(f"[Ensemble] Stacking: Accuracy={acc:.4f}, AUC={auc_str}")
     
     models = {
         "xgboost": xgb,
