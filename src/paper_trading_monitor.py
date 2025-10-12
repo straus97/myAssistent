@@ -135,13 +135,14 @@ def generate_signals_for_symbols(
     
     try:
         # Загружаем модель
-        model_path = load_latest_model()
-        if not model_path or not Path(model_path).exists():
+        model_tuple = load_latest_model()
+        if not model_tuple:
             logger.warning("[MONITOR] No model found, skipping signal generation")
             return signals
         
-        import joblib
-        model = joblib.load(model_path)
+        # Распаковываем tuple (model, feature_cols, threshold, path)
+        model, feature_cols_from_model, threshold, model_path = model_tuple
+        logger.info(f"[MONITOR] Loaded model from {model_path}")
         
         # Загружаем risk policy
         policy = load_policy()

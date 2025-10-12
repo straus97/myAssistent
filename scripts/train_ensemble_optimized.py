@@ -264,7 +264,7 @@ def main():
         all_results, key=lambda x: x[1]["roc_auc"] if x[1]["roc_auc"] else 0.0
     )
     
-    print(f"🏆 BEST MODEL: {best_name.upper()}")
+    print(f"*** BEST MODEL: {best_name.upper()} ***")
     print(f"   Accuracy: {best_metrics['accuracy']:.4f}")
     print(f"   ROC AUC: {best_metrics['roc_auc']:.4f}")
     print()
@@ -303,8 +303,8 @@ def main():
     with open(metadata_path, "w") as f:
         json.dump(metadata, f, indent=2)
     
-    print(f"✅ Model saved: {model_path}")
-    print(f"✅ Metadata saved: {metadata_path}")
+    print(f"[OK] Model saved: {model_path}")
+    print(f"[OK] Metadata saved: {metadata_path}")
     print()
     print("=" * 80)
     print("TRAINING COMPLETE!")
