@@ -85,13 +85,25 @@ print("=" * 80)
 print("Step 1: Loading Dataset")
 print("=" * 80)
 
-df = build_dataset(exchange=EXCHANGE, pair=SYMBOL, tf=TIMEFRAME)
-print(f"[OK] Dataset loaded: {len(df)} rows x {len(df.columns)} features")
-print(f"     Date range: {df['dt'].min()} to {df['dt'].max()}")
-print()
+# Get DB session
+from src.db import SessionLocal
+db = SessionLocal()
 
-# Remove target from features
-feature_cols = [c for c in df.columns if c not in ["y", "dt", "future_ret", "pair"]]
+try:
+    df, feature_list = build_dataset(
+        db=db,
+        exchange=EXCHANGE,
+        symbol=SYMBOL,
+        timeframe=TIMEFRAME
+    )
+    print(f"[OK] Dataset loaded: {len(df)} rows x {len(df.columns)} features")
+    print(f"     Date range: {df.index.min()} to {df.index.max()}")
+    print()
+finally:
+    db.close()
+
+# Use feature_list from build_dataset
+feature_cols = feature_list
 print(f"[OK] Features: {len(feature_cols)}")
 
 # Split train/test (80/20) - test set остается нетронутым
