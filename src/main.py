@@ -42,6 +42,7 @@ from src.routers import (
     rl,
     mlflow_registry,
     validation,
+    paper_monitor,
 )
 
 # Импорты зависимостей и утилит
@@ -180,6 +181,7 @@ app.include_router(backtest.router)
 app.include_router(rl.router)
 app.include_router(mlflow_registry.router)
 app.include_router(validation.router)
+app.include_router(paper_monitor.router)
 
 
 # ============== Корневые Эндпоинты ==============
@@ -477,6 +479,27 @@ def job_news_radar():
             print(f"[scheduler] news_radar error: {e}")
 
 
+def job_paper_monitor():
+    """Paper Trading Real-Time Monitor - автоматическое обновление"""
+    from src.paper_trading_monitor import run_monitor_update, load_monitor_state
+    
+    # Проверяем, включен ли монитор
+    state = load_monitor_state()
+    if not state.get("enabled", False):
+        return
+    
+    try:
+        result = run_monitor_update()
+        if result.get("status") == "ok":
+            signals_count = len(result.get("signals", []))
+            if signals_count > 0:
+                print(f"[scheduler] paper_monitor: {signals_count} new signals")
+        else:
+            print(f"[scheduler] paper_monitor error: {result.get('errors', [])}")
+    except Exception as e:
+        print(f"[scheduler] paper_monitor exception: {e}")
+
+
 def _model_needs_retrain(db: Session, exchange: str, symbol: str, timeframe: str, horizon_steps: int, policy: dict, df_len: int = 0):
     """
     Проверяет, нужно ли переобучать модель по SLA политике
@@ -693,6 +716,17 @@ def on_startup():
         job_news_radar,
         IntervalTrigger(minutes=10),
         id="news_radar",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=60,
+    )
+    
+    # Paper Trading Real-Time Monitor
+    scheduler.add_job(
+        job_paper_monitor,
+        IntervalTrigger(minutes=15),
+        id="paper_monitor",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
