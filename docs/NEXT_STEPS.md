@@ -273,10 +273,45 @@
   
   - ✅ Git commits: dc58ac0, f8252b6
 
+**Завершено (2025-10-12 день):**
+- ✅ **Next.js UI компоненты (полностью готовы!):**
+  - ✅ Landing page (/) - Hero с quick stats и navigation
+  - ✅ Dashboard (/dashboard) - Полный мониторинг
+    - Portfolio overview (Equity, Cash, Positions, Return)
+    - Equity curve chart (Recharts)
+    - Open positions table
+    - Recent signals table
+    - Model health cards
+  
+  - ✅ **UI компоненты:**
+    - EquityChart.tsx - график equity (Recharts)
+    - BacktestChart.tsx - результаты бэктеста
+    - MetricsCard.tsx - карточки метрик
+    - SignalsTable.tsx - таблица сигналов
+  
+  - ✅ **Функции:**
+    - Real-time updates (10-60s intervals через React Query)
+    - Dark mode support (Tailwind CSS)
+    - Responsive design (mobile-friendly)
+    - TypeScript type safety
+  
+  - ✅ **Quick Links:**
+    - Backend API (:8000)
+    - MLflow (:5000)
+    - Prometheus (:9090)
+    - Grafana (:3001)
+  
+  - ✅ **Исправления:**
+    - start_all.bat (pip install error with && и ^)
+    - Добавлен catboost_info/ в .gitignore
+    - Добавлен mlruns/ в .gitignore
+  
+  - ✅ Git commit: 27c19e9
+
 **Осталось:**
-- ⏳ PostgreSQL миграция (масштабируемость для production)
-- ⏳ Next.js UI компоненты
-- ⏳ Дальнейшие улучшения (target: +5-10% return, Sharpe > 1.0)
+- ⏳ PostgreSQL миграция (масштабируемость для production, опционально)
+- ⏳ Дальнейшие улучшения ML (target: +5-10% return, Sharpe > 1.0)
+- ⏳ Walk-Forward Validation (адаптация к market regime changes)
 
 ---
 

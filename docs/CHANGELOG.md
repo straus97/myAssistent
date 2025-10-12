@@ -11,6 +11,133 @@
 
 ---
 
+## [2025-10-12 день] - Полный Next.js UI готов к использованию
+
+### ✅ Добавлено
+
+#### Next.js Frontend (полностью функциональный!)
+
+**Страницы:**
+- **Landing Page (/)** - Красивая главная страница с:
+  - Hero section с названием проекта
+  - Live stats badges (Return +0.16%, Sharpe 0.77, 48 Features)
+  - Navigation cards (Dashboard, Backtest, Models, Settings, News, API Docs)
+  - Quick links на все сервисы
+  
+- **Dashboard (/dashboard)** - Полноценный мониторинг:
+  - Portfolio overview (4 карточки: Total Equity, Cash, Positions, Return)
+  - Equity curve chart (real-time, 10s updates)
+  - Open positions table
+  - Recent signals table
+  - Model health cards (status, ROC AUC, age, features count)
+
+**UI Компоненты (reusable):**
+- `EquityChart.tsx` - График equity (Recharts, responsive)
+- `BacktestChart.tsx` - Equity + Drawdown (dual-axis)
+- `MetricsCard.tsx` - Карточка метрики (с трендом up/down/neutral)
+- `SignalsTable.tsx` - Таблица торговых сигналов
+
+**Функциональность:**
+- ✅ Real-time data updates (React Query)
+  - Equity: обновление каждые 10 секунд
+  - Positions: обновление каждые 10 секунд
+  - Signals: обновление каждые 30 секунд
+  - Model Health: обновление каждые 60 секунд
+- ✅ Dark mode (Tailwind CSS)
+- ✅ Responsive design (desktop/tablet/mobile)
+- ✅ TypeScript strict mode
+- ✅ Recharts для графиков (уже в dependencies)
+
+**API Integration:**
+- GET /trade/equity
+- GET /trade/positions
+- GET /signals/recent
+- GET /model/health
+
+#### Ensemble Model (протестирован)
+
+- ✅ Создан `scripts/train_ensemble.py`
+- ✅ Stacking: XGBoost + LightGBM + CatBoost → Logistic Regression
+- ✅ Протестировано на 2130 rows, 48 features
+- ❌ Результат: ROC AUC 0.4745 (хуже single XGBoost 0.48)
+- **Вывод:** Ensemble не помог (базовые модели слабые для текущего датасета)
+
+**Dependencies added:**
+- `lightgbm>=4.0`
+- `catboost>=1.2`
+
+### Исправлено
+
+- **start_all.bat** - критическая ошибка установки зависимостей:
+  - Проблема: команда `pip install && pip install` с `^` неправильно парсилась
+  - Решение: разбил на отдельные команды с `if errorlevel 1`
+  - Теперь работает корректно на Windows
+
+- **.gitignore** - добавлены:
+  - `catboost_info/` (training logs)
+  - `mlruns/` (MLflow local runs)
+
+### Улучшено
+
+- **Data Strategy:**
+  - Тестирование показало: 6 месяцев данных (4320 rows) → ROC AUC 0.50 (хуже!)
+  - Причина: Market regime change (апрель-июль vs август-октябрь)
+  - Решение: вернулись к 90 дням (2160 rows) — оптимальный баланс
+  
+- **Feature Selection:**
+  - Подтверждено: 48 динамичных фичей > 78 фичей (с 30 статичными)
+  - Static features (OnChain, Macro, Social) не помогают из-за низкой частоты обновления
+
+### Технические детали
+
+**UI Stack:**
+- Next.js 14 (App Router)
+- React 18
+- TypeScript 5.3
+- Tailwind CSS 3.4
+- Recharts 2.10 (графики)
+- React Query 5.17 (data fetching)
+
+**Backend Integration:**
+- API клиент в `frontend/src/lib/api.ts`
+- Type-safe responses
+- Error handling
+
+### Для пользователя
+
+**Запуск полного стека:**
+
+1. Через батник (всё автоматически):
+   ```bash
+   start_all.bat
+   ```
+
+2. Или вручную:
+   ```bash
+   # Docker
+   docker-compose up -d postgres mlflow prometheus grafana
+   
+   # Backend
+   uvicorn src.main:app --host 127.0.0.1 --port 8000
+   
+   # Frontend
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+**Доступные сервисы:**
+- Frontend: http://localhost:3000 (НОВЫЙ!)
+- Backend API: http://localhost:8000
+- Swagger UI: http://localhost:8000/docs
+- MLflow: http://localhost:5000
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3001
+
+**Commits:** 27c19e9
+
+---
+
 ## [2025-10-12 утро] - ПРОРЫВ: Модель стала ПРИБЫЛЬНОЙ! 🎉
 
 ### 🎉 Главное достижение
