@@ -150,7 +150,7 @@ def generate_signals_for_symbols(
         for symbol in symbols:
             try:
                 # Строим датасет
-                df = build_dataset(db, exchange, symbol, timeframe, lookback=200)
+                df, feature_list = build_dataset(db, exchange, symbol, timeframe)
                 
                 if df is None or len(df) < 50:
                     logger.warning(f"[MONITOR] Not enough data for {symbol}")
