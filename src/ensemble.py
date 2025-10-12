@@ -119,7 +119,8 @@ def train_single_model(
         "roc_auc": auc,
     }
     
-    logger.info(f"[Ensemble] {model_type}: Accuracy={acc:.4f}, AUC={auc:.4f if auc else 'N/A'}")
+    auc_str = f"{auc:.4f}" if auc else "N/A"
+    logger.info(f"[Ensemble] {model_type}: Accuracy={acc:.4f}, AUC={auc_str}")
     
     return model, metrics
 

@@ -1,0 +1,87 @@
+================================================================================
+ENSEMBLE MODEL TRAINING WITH HYPERPARAMETER OPTIMIZATION
+================================================================================
+Exchange: bybit
+Symbol: BTC/USDT
+Timeframe: 1h
+Optuna trials per model: 50
+
+[1/6] Loading dataset...
+[Features] Dataset built: 2129 rows x 84 features
+[Features] Base: 6 price, Lag: 12, Time: 11, Technical: 37, News: 24
+[Features] PHASE 2: Static features (OnChain/Macro/Social: 28) DISABLED
+[Features] Total dynamic features: 84 (was 112, removed 28 static)
+Dataset: 2129 rows x 84 features
+Date range: 2025-07-15 13:00:00+00:00 -> 2025-10-12 05:00:00+00:00
+
+[2/6] Splitting data (60% train, 20% val, 20% test)...
+Train: 1277 samples
+Validation: 426 samples
+Test: 426 samples
+
+[3/6] Hyperparameter optimization with Optuna...
+
+[Optuna] Optimizing XGBoost (50 trials)...
+
+  0%|          | 0/50 [00:00<?, ?it/s]
+                                      
+
+  0%|          | 0/50 [00:01<?, ?it/s]
+                                      
+
+  0%|          | 0/50 [00:01<?, ?it/s]
+  0%|          | 0/50 [00:01<?, ?it/s]
+[W 2025-10-12 18:32:07,683] Trial 0 failed with parameters: {'n_estimators': 250, 'max_depth': 10, 'learning_rate': 0.1205712628744377, 'subsample': 0.8394633936788146, 'colsample_bytree': 0.6624074561769746, 'min_child_weight': 2, 'gamma': 0.05808361216819946, 'reg_alpha': 0.8661761457749352, 'reg_lambda': 0.6011150117432088} because of the following error: ValueError("Invalid format specifier '.4f if auc else 'N/A'' for object of type 'float'").
+Traceback (most recent call last):
+  File "C:\Users\nikita\AppData\Local\Programs\Python\Python313\Lib\site-packages\optuna\study\_optimize.py", line 201, in _run_trial
+    value_or_values = func(trial)
+  File "C:\AI\myAssistent\scripts\train_ensemble_optimized.py", line 76, in objective
+    model, metrics = train_single_model(X_train, y_train, X_val, y_val, "xgboost", params)
+                     ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI\myAssistent\src\ensemble.py", line 122, in train_single_model
+    logger.info(f"[Ensemble] {model_type}: Accuracy={acc:.4f}, AUC={auc:.4f if auc else 'N/A'}")
+                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Invalid format specifier '.4f if auc else 'N/A'' for object of type 'float'
+[W 2025-10-12 18:32:07,685] Trial 0 failed with value None.
+Traceback (most recent call last):
+  File "C:\AI\myAssistent\scripts\train_ensemble_optimized.py", line 315, in <module>
+    main()
+    ~~~~^^
+  File "C:\AI\myAssistent\scripts\train_ensemble_optimized.py", line 202, in main
+    best_params_xgb = optimize_xgboost(X_train, y_train, X_val, y_val, n_trials=trials_per_model)
+  File "C:\AI\myAssistent\scripts\train_ensemble_optimized.py", line 80, in optimize_xgboost
+    study.optimize(objective, n_trials=n_trials, timeout=TIMEOUT, show_progress_bar=True)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nikita\AppData\Local\Programs\Python\Python313\Lib\site-packages\optuna\study\study.py", line 490, in optimize
+    _optimize(
+    ~~~~~~~~~^
+        study=self,
+        ^^^^^^^^^^^
+    ...<7 lines>...
+        show_progress_bar=show_progress_bar,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nikita\AppData\Local\Programs\Python\Python313\Lib\site-packages\optuna\study\_optimize.py", line 63, in _optimize
+    _optimize_sequential(
+    ~~~~~~~~~~~~~~~~~~~~^
+        study,
+        ^^^^^^
+    ...<8 lines>...
+        progress_bar=progress_bar,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\nikita\AppData\Local\Programs\Python\Python313\Lib\site-packages\optuna\study\_optimize.py", line 160, in _optimize_sequential
+    frozen_trial_id = _run_trial(study, func, catch)
+  File "C:\Users\nikita\AppData\Local\Programs\Python\Python313\Lib\site-packages\optuna\study\_optimize.py", line 258, in _run_trial
+    raise func_err
+  File "C:\Users\nikita\AppData\Local\Programs\Python\Python313\Lib\site-packages\optuna\study\_optimize.py", line 201, in _run_trial
+    value_or_values = func(trial)
+  File "C:\AI\myAssistent\scripts\train_ensemble_optimized.py", line 76, in objective
+    model, metrics = train_single_model(X_train, y_train, X_val, y_val, "xgboost", params)
+                     ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\AI\myAssistent\src\ensemble.py", line 122, in train_single_model
+    logger.info(f"[Ensemble] {model_type}: Accuracy={acc:.4f}, AUC={auc:.4f if auc else 'N/A'}")
+                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Invalid format specifier '.4f if auc else 'N/A'' for object of type 'float'

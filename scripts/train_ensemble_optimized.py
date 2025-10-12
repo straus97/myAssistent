@@ -49,8 +49,8 @@ EXCHANGE = "bybit"
 SYMBOL = "BTC/USDT"
 TIMEFRAME = "1h"
 # PHASE 2: увеличенный budget для серьезной оптимизации
-N_TRIALS = 150  # По 50 trials на модель (было 30)
-TIMEOUT = 7200  # 2 часа максимум на оптимизацию (было 1800 = 30 мин)
+N_TRIALS = 90  # По 30 trials на модель (компромисс между скоростью и качеством)
+TIMEOUT = 3600  # 1 час максимум на оптимизацию
 
 
 def optimize_xgboost(X_train, y_train, X_val, y_val, n_trials=50):
