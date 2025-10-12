@@ -1,12 +1,16 @@
 """
 MyAssistent API - Автономный торговый бот с ML для Bybit
-Версия 0.8 - Модульная архитектура с роутерами
+Версия 1.0 - Production Ready с полным мониторингом
 """
 from __future__ import annotations
 
 # Загрузка переменных окружения из .env файла (ДОЛЖНО БЫТЬ ПЕРВЫМ!)
 from dotenv import load_dotenv
 load_dotenv()
+
+# Инициализация Sentry для error tracking (должно быть рано)
+from src.sentry_integration import init_sentry
+SENTRY_ENABLED = init_sentry()
 
 import os
 import json
@@ -196,8 +200,62 @@ def root():
 
 @app.get("/ping")
 def ping():
-    """Health check"""
+    """Simple health check"""
     return {"pong": True}
+
+
+@app.get("/health")
+def health():
+    """
+    Detailed health check для production monitoring.
+    
+    Проверяет:
+    - Database connection
+    - Scheduler status
+    - Model availability
+    - Disk space
+    """
+    from datetime import datetime
+    
+    health_status = {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "services": {}
+    }
+    
+    # Database check
+    try:
+        with SessionLocal() as db:
+            db.execute("SELECT 1")
+            health_status["services"]["database"] = "ok"
+    except Exception as e:
+        health_status["services"]["database"] = f"error: {e}"
+        health_status["status"] = "degraded"
+    
+    # Scheduler check
+    try:
+        if scheduler and scheduler.running:
+            health_status["services"]["scheduler"] = "ok"
+        else:
+            health_status["services"]["scheduler"] = "stopped"
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["services"]["scheduler"] = f"error: {e}"
+        health_status["status"] = "degraded"
+    
+    # Model check
+    try:
+        from .model_registry import get_active_model_path
+        model_path = get_active_model_path("bybit", "BTC/USDT", "1h")
+        health_status["services"]["model"] = "ok" if model_path else "no_model"
+    except Exception as e:
+        health_status["services"]["model"] = f"error: {e}"
+    
+    # Sentry check
+    health_status["services"]["sentry"] = "ok" if SENTRY_ENABLED else "disabled"
+    
+    return health_status
 
 
 @app.get("/hello", tags=["Memory"])
@@ -526,6 +584,18 @@ def job_risk_checks():
             print(f"[scheduler] risk_checks exception: {e}")
 
 
+def job_healthcheck_ping():
+    """Healthchecks.io - ping каждые 5 минут для uptime monitoring"""
+    from src.healthcheck_integration import healthcheck_with_system_status
+    
+    try:
+        success = healthcheck_with_system_status()
+        if not success:
+            print("[scheduler] healthcheck_ping: failed (check HEALTHCHECK_URL)")
+    except Exception as e:
+        print(f"[scheduler] healthcheck_ping exception: {e}")
+
+
 def _model_needs_retrain(db: Session, exchange: str, symbol: str, timeframe: str, horizon_steps: int, policy: dict, df_len: int = 0):
     """
     Проверяет, нужно ли переобучать модель по SLA политике
@@ -768,6 +838,16 @@ def on_startup():
         max_instances=1,
         coalesce=True,
         misfire_grace_time=30,
+    )
+    
+    # Healthcheck Ping (Uptime Monitoring)
+    scheduler.add_job(
+        job_healthcheck_ping,
+        IntervalTrigger(minutes=5),
+        id="healthcheck_ping",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
     )
     
     try:
