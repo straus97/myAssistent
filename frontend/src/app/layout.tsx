@@ -20,7 +20,7 @@ export default function RootLayout({
     <html lang="ru">
       <body className={inter.className}>
         <Providers>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+          <div className="min-h-screen bg-background">
             <Sidebar />
             <main className="lg:ml-64 transition-all duration-300">
               <div className="min-h-screen">

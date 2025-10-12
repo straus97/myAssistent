@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import ThemeToggle from './ThemeToggle';
 
 const menuItems = [
   { href: '/', label: 'Главная', icon: '🏠' },
@@ -29,30 +30,33 @@ export default function Sidebar() {
       
       {/* Sidebar */}
       <aside className={`
-        fixed top-0 left-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700
+        fixed top-0 left-0 h-screen bg-card border-r border-border
         transition-all duration-300 ease-in-out z-50
         ${isCollapsed ? 'w-16' : 'w-64'}
         lg:translate-x-0
       `}>
         {/* Logo */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between">
             {!isCollapsed && (
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-xl font-bold text-foreground">
                   MyAssistent
                 </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Торговый Бот на ИИ</p>
+                <p className="text-xs text-muted-foreground">Торговый Бот на ИИ</p>
               </div>
             )}
-            <button
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
-              <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <button
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="p-2 rounded-lg hover:bg-accent transition-colors"
+              >
+                <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -67,18 +71,18 @@ export default function Sidebar() {
                     className={`
                       flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 cursor-pointer group
                       ${isActive
-                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                        ? 'bg-primary/10 text-primary border border-primary/20'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                       }
                       ${isCollapsed ? 'justify-center' : ''}
                     `}
                   >
-                    <span className="text-xl flex-shrink-0">{item.icon}</span>
+                    <span className="text-lg flex-shrink-0">{item.icon}</span>
                     {!isCollapsed && (
                       <span className="font-medium text-sm">{item.label}</span>
                     )}
                     {isActive && !isCollapsed && (
-                      <div className="ml-auto w-2 h-2 bg-blue-600 rounded-full"></div>
+                      <div className="ml-auto w-2 h-2 bg-primary rounded-full"></div>
                     )}
                   </div>
                 </Link>
@@ -87,12 +91,12 @@ export default function Sidebar() {
           </div>
 
           {/* Separator */}
-          <div className="my-6 border-t border-gray-200 dark:border-gray-700"></div>
+          <div className="my-6 border-t border-border"></div>
 
           {/* External Links */}
           <div className="space-y-2">
             {!isCollapsed && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider px-3 mb-3 font-semibold">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider px-3 mb-3 font-semibold">
                 Доп. сервисы
               </p>
             )}
@@ -105,20 +109,20 @@ export default function Sidebar() {
                 className="block"
               >
                 <div className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-600 dark:text-gray-400 
-                  hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white 
+                  flex items-center gap-3 px-3 py-2.5 rounded-xl text-muted-foreground 
+                  hover:bg-accent hover:text-accent-foreground 
                   transition-all duration-200 cursor-pointer group
                   ${isCollapsed ? 'justify-center' : ''}
                 `}>
-                  <span className="text-lg flex-shrink-0">{item.icon}</span>
+                  <span className="text-sm flex-shrink-0">{item.icon}</span>
                   {!isCollapsed && (
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{item.label}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-500 truncate">{item.badge}</div>
+                      <div className="text-xs text-muted-foreground/70 truncate">{item.badge}</div>
                     </div>
                   )}
                   {!isCollapsed && (
-                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                   )}
@@ -129,15 +133,15 @@ export default function Sidebar() {
         </nav>
 
         {/* Status */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-t border-border">
           <div className="flex items-center gap-2 text-sm">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
             {!isCollapsed && (
-              <span className="text-gray-600 dark:text-gray-400 text-xs">Система работает</span>
+              <span className="text-muted-foreground text-xs">Система работает</span>
             )}
           </div>
           {!isCollapsed && (
-            <div className="mt-2 text-xs text-gray-500 dark:text-gray-500">
+            <div className="mt-2 text-xs text-muted-foreground/70">
               v1.0 • Прибыльная модель
             </div>
           )}
