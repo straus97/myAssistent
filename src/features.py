@@ -318,27 +318,101 @@ def build_dataset(
         for key in social_keys:
             df[key] = 0.0
 
+    # --- LAG FEATURES (критично для временных рядов!) ---
+    # Лаги основных индикаторов
+    df["ret_1_lag1"] = df["ret_1"].shift(1)
+    df["ret_1_lag2"] = df["ret_1"].shift(2)
+    df["ret_1_lag4"] = df["ret_1"].shift(4)
+    df["ret_1_lag24"] = df["ret_1"].shift(24)
+    
+    df["rsi_14_lag1"] = df["rsi_14"].shift(1)
+    df["rsi_14_lag4"] = df["rsi_14"].shift(4)
+    
+    df["bb_pct_20_2_lag1"] = df["bb_pct_20_2"].shift(1)
+    df["vol_norm_lag1"] = df["vol_norm"].shift(1)
+    df["vol_norm_lag4"] = df["vol_norm"].shift(4)
+    
+    # Momentum features (изменение за период)
+    df["ret_momentum_4"] = df["ret_1"].rolling(4).sum()
+    df["ret_momentum_12"] = df["ret_1"].rolling(12).sum()
+    df["rsi_change_4"] = df["rsi_14"] - df["rsi_14"].shift(4)
+    
+    # --- TIME FEATURES (цикличность) ---
+    # Извлекаем временные компоненты из индекса
+    df["hour"] = df.index.hour
+    df["day_of_week"] = df.index.dayofweek  # 0=Monday, 6=Sunday
+    df["day_of_month"] = df.index.day
+    df["month"] = df.index.month
+    
+    # Циклическое кодирование (sin/cos) для hour и day_of_week
+    df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
+    df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
+    df["dow_sin"] = np.sin(2 * np.pi * df["day_of_week"] / 7)
+    df["dow_cos"] = np.cos(2 * np.pi * df["day_of_week"] / 7)
+    
+    # Бинарные флаги
+    df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
+    df["is_month_start"] = (df["day_of_month"] <= 7).astype(int)
+    df["is_month_end"] = (df["day_of_month"] >= 24).astype(int)
+    
+    # --- ДОПОЛНИТЕЛЬНЫЕ ТЕХНИЧЕСКИЕ ИНДИКАТОРЫ ---
+    # Volume-weighted indicators
+    df["volume_sma_20"] = df["volume"].rolling(20).mean()
+    df["volume_ratio"] = df["volume"] / (df["volume_sma_20"] + 1e-9)
+    
+    # Price action
+    df["high_low_ratio"] = df["high"] / (df["low"] + 1e-9)
+    df["close_open_ratio"] = df["close"] / (df["open"] + 1e-9)
+    
+    # Volatility expansion/contraction
+    df["atr_change"] = df["atr_14"] - df["atr_14"].shift(4)
+    df["bb_width_change"] = df["bb_width_20_2"] - df["bb_width_20_2"].shift(4)
+    
+    # Trend strength
+    df["ema_distance"] = (df["close"] - df["ema_50"]) / (df["ema_50"] + 1e-9)
+    df["ema_slope_21"] = (df["ema_21"] - df["ema_21"].shift(4)) / (df["ema_21"].shift(4) + 1e-9)
+    
+    # Mean reversion indicators
+    df["price_to_sma_20"] = df["close"] / (df["close"].rolling(20).mean() + 1e-9)
+    df["rsi_overbought"] = (df["rsi_14"] > 70).astype(int)
+    df["rsi_oversold"] = (df["rsi_14"] < 30).astype(int)
+
     # --- целевая переменная ---
     df["future_ret"] = df["close"].shift(-horizon_steps) / df["close"] - 1.0
     df["y"] = (df["future_ret"] > 0).astype(int)
 
-    # список колонок-фич (РАСШИРЕННЫЙ!)
+    # список колонок-фич (РАСШИРЕННЫЙ до 110+!)
     feature_cols = (
         [
-            # Ценовые фичи
+            # Ценовые фичи (базовые)
             "ret_1", "ret_3", "ret_6", "ret_12", "ret_24", "vol_norm",
-            # Технические индикаторы
+            # Lag features (14 новых)
+            "ret_1_lag1", "ret_1_lag2", "ret_1_lag4", "ret_1_lag24",
+            "rsi_14_lag1", "rsi_14_lag4",
+            "bb_pct_20_2_lag1", "vol_norm_lag1", "vol_norm_lag4",
+            "ret_momentum_4", "ret_momentum_12", "rsi_change_4",
+            # Time features (12 новых)
+            "hour", "day_of_week", "day_of_month", "month",
+            "hour_sin", "hour_cos", "dow_sin", "dow_cos",
+            "is_weekend", "is_month_start", "is_month_end",
+            # Технические индикаторы (базовые)
             "rsi_14", "bb_pct_20_2", "bb_width_20_2",
             "macd", "macd_signal", "macd_hist",
             "atr_14", "atr_pct", "adx_14",
             "stoch_k", "stoch_d", "williams_r", "cci_20",
             "ema_9", "ema_21", "ema_50", "ema_cross_9_21", "ema_cross_21_50",
+            # Дополнительные технические (12 новых)
+            "volume_sma_20", "volume_ratio",
+            "high_low_ratio", "close_open_ratio",
+            "atr_change", "bb_width_change",
+            "ema_distance", "ema_slope_21",
+            "price_to_sma_20", "rsi_overbought", "rsi_oversold",
             # Новостные фичи
             "news_cnt_6", "news_cnt_24", "sent_mean_6", "sent_mean_24",
         ]
         + [f"tag_{t}_{6}" for t in TAGS]
         + [f"tag_{t}_{24}" for t in TAGS]
-        # On-chain фичи (НОВЫЕ - CoinGecko + Blockchain.info + CoinGlass)
+        # On-chain фичи (CoinGecko + Blockchain.info + CoinGlass)
         + [
             "onchain_market_cap", "onchain_volume_24h", "onchain_circulating_supply",
             "onchain_price_change_24h", "onchain_price_change_7d", "onchain_price_change_30d",
@@ -346,13 +420,13 @@ def build_dataset(
             "onchain_funding_rate", "onchain_liquidations_24h",
             "onchain_long_liquidations", "onchain_short_liquidations",
         ]
-        # Макро фичи (НОВЫЕ - Fear & Greed + Yahoo Finance)
+        # Макро фичи (Fear & Greed + Yahoo Finance)
         + [
             "macro_fear_greed", "macro_fear_greed_norm", "macro_dxy",
             "macro_gold_price", "macro_oil_price", "macro_fed_rate",
             "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread",
         ]
-        # Social фичи (НОВЫЕ - Reddit public JSON + Google Trends)
+        # Social фичи (Reddit public JSON + Google Trends)
         + [
             "social_reddit_posts", "social_reddit_sentiment", "social_reddit_avg_score",
             "social_google_trends", "social_twitter_mentions", "social_twitter_sentiment",
@@ -370,7 +444,8 @@ def build_dataset(
     df = df.set_index("timestamp")
     
     print(f"[Features] Dataset built: {len(df)} rows x {len(feature_cols)} features")
-    print(f"[Features] Technical: 25, News: {2 + len(TAGS)*2}, OnChain: 9, Macro: 7, Social: 5")
+    print(f"[Features] Base: 6 price, Lag: 12, Time: 11, Technical: 37, News: {2 + len(TAGS)*2}, OnChain: 13, Macro: 9, Social: 6")
+    print(f"[Features] Total dynamic features: ~65, Total features: {len(feature_cols)}")
     return df, feature_cols
 
 

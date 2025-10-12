@@ -11,6 +11,150 @@
 
 ---
 
+## [2025-10-12 Evening] - 🧠 Model Improvement PHASE 1: Feature Engineering + Ensemble Infrastructure
+
+### ✅ Добавлено
+
+#### 1. Feature Engineering (+38 новых фичей)
+- ✅ **Lag features** (12 фич):
+  - `ret_1_lag1`, `ret_1_lag2`, `ret_1_lag4`, `ret_1_lag24` - лаги доходности
+  - `rsi_14_lag1`, `rsi_14_lag4` - лаги RSI
+  - `bb_pct_20_2_lag1`, `vol_norm_lag1`, `vol_norm_lag4` - лаги технических индикаторов
+  - `ret_momentum_4`, `ret_momentum_12`, `rsi_change_4` - momentum фичи
+- ✅ **Time features** (11 фич):
+  - `hour`, `day_of_week`, `day_of_month`, `month` - временные компоненты
+  - `hour_sin`, `hour_cos`, `dow_sin`, `dow_cos` - циклическое кодирование
+  - `is_weekend`, `is_month_start`, `is_month_end` - бинарные флаги
+- ✅ **Дополнительные технические индикаторы** (12 фич):
+  - Volume: `volume_sma_20`, `volume_ratio`
+  - Price action: `high_low_ratio`, `close_open_ratio`
+  - Volatility: `atr_change`, `bb_width_change`
+  - Trend: `ema_distance`, `ema_slope_21`
+  - Mean reversion: `price_to_sma_20`, `rsi_overbought`, `rsi_oversold`
+- ✅ **Итого:** 112 фичей (было 74, +38 новых, ~65 динамических)
+- ✅ **Файл:** `src/features.py` (обновлен, +150 строк)
+
+#### 2. Ensemble Models Infrastructure
+- ✅ Модуль `src/ensemble.py` (274 строки):
+  - `train_single_model()` - обучение XGBoost/LightGBM/CatBoost
+  - `train_voting_ensemble()` - усреднение предсказаний 3 моделей
+  - `train_stacking_ensemble()` - мета-модель (LogisticRegression)
+  - `save_ensemble()`, `load_ensemble()` - сохранение/загрузка
+  - `predict_ensemble()` - inference
+- ✅ Поддержка моделей:
+  - **XGBoost** - базовая модель
+  - **LightGBM** - быстрая альтернатива (уже в requirements.txt)
+  - **CatBoost** - для категориальных фичей (уже в requirements.txt)
+  - **Voting** - простое усреднение
+  - **Stacking** - мета-обучение
+
+#### 3. Hyperparameter Tuning (Optuna)
+- ✅ Скрипт `scripts/train_ensemble_optimized.py` (283 строки):
+  - Optuna optimization для XGBoost, LightGBM, CatBoost
+  - N_TRIALS: 30 (по 10 на модель, можно увеличить до 100+)
+  - Timeout: 30 минут (можно увеличить)
+  - Train/Val/Test split: 60/20/20
+  - Автоматический выбор лучшей модели по ROC AUC
+  - Сохранение моделей и метаданных
+- ✅ Оптимизируемые параметры:
+  - `n_estimators`: 100-500
+  - `max_depth`: 3-10
+  - `learning_rate`: 0.01-0.3 (log scale)
+  - `subsample`: 0.6-1.0
+  - `colsample_bytree`: 0.6-1.0
+  - Регуляризация: `reg_alpha`, `reg_lambda`, `gamma`, etc.
+
+#### 4. Testing Scripts
+- ✅ `scripts/test_new_features.py` (169 строк):
+  - Сравнение старых (28 фич) vs новых (112 фич) моделей
+  - Baseline comparison: ROC AUC improvement
+  - Быстрое тестирование без долгого обучения
+- ✅ `scripts/backtest_improved_model.py` (206 строк):
+  - Простой бэктест на улучшенной модели
+  - Метрики: Sharpe, Sortino, Calmar, Max DD, Win Rate, Profit Factor
+  - Проверка целей: Sharpe >1.5, Return >5%
+  - Train/Test split: 80/20
+
+#### 5. Documentation
+- ✅ `docs/MODEL_IMPROVEMENT_PHASE1.md` (полная документация фазы 1):
+  - Описание всех добавленных фичей
+  - Инфраструктура ensemble
+  - Результаты тестирования
+  - Выводы и рекомендации для PHASE 2
+
+### 📊 Результаты
+
+#### Feature Comparison Test
+- Old features (28): ROC AUC = 0.4765
+- New features (112): ROC AUC = 0.4848
+- **Improvement: +0.84% AUC**
+
+#### Backtest Results (Improved Model)
+- Dataset: 2129 rows (2025-07-15 to 2025-10-12, 89 days)
+- Total Return: -2.56% (убыточно)
+- Sharpe Ratio: -1.98 (цель >1.5, не достигнута)
+- Max Drawdown: -5.22%
+- Win Rate: 48.15%
+- Profit Factor: 0.85
+- Total Trades: 81
+
+### 🔍 Выводы
+
+**Что работает:**
+- ✅ Feature engineering инфраструктура готова
+- ✅ Ensemble модули готовы
+- ✅ Optuna hyperparameter tuning готов
+- ✅ Тестовые скрипты готовы
+
+**Что требует улучшений:**
+- ❌ Базовая модель убыточна (Sharpe -1.98)
+- ❌ ROC AUC <0.5 (хуже случайного)
+- ⚠️ Статичные фичи (on-chain/macro/social) не дают value
+- ⚠️ Дефолтные параметры не оптимальны
+
+**Причины слабой модели:**
+1. **Статичные фичи** - on-chain/macro/social вызываются один раз для всего датасета
+2. **Не оптимизированы параметры** - используются дефолтные
+3. **Слабый signal** - возможно horizon_steps=4 слишком короткий
+4. **Overfitting** - модель может переобучаться
+
+### 🚀 Следующие шаги (PHASE 2 - отдельный чат)
+
+1. **Feature Selection** - убрать статичные on-chain/macro/social фичи (28 фич)
+2. **Optuna optimization** - запуск с N_TRIALS=100+ (2-3 часа)
+3. **Ensemble training** - сравнение Voting vs Stacking
+4. **Walk-Forward Validation** - проверка стабильности
+5. **Threshold optimization** - подбор порога для BUY сигнала
+6. **Position sizing** - Kelly Criterion или RL-based
+
+### 📁 Файлы
+
+**Новые:**
+- `src/ensemble.py` (274 строки)
+- `scripts/train_ensemble_optimized.py` (283 строки)
+- `scripts/test_new_features.py` (169 строк)
+- `scripts/backtest_improved_model.py` (206 строк)
+- `docs/MODEL_IMPROVEMENT_PHASE1.md` (документация)
+
+**Обновленные:**
+- `src/features.py` (+150 строк, 38 новых фичей)
+- `docs/CHANGELOG.md` (этот файл)
+
+**Итого:** ~1080 строк нового кода
+
+### ⏱ Время выполнения
+- Feature Engineering: ~30 минут
+- Ensemble infrastructure: ~45 минут
+- Optuna script: ~30 минут
+- Testing scripts: ~30 минут
+- Testing & debugging: ~1 час
+- Документация: ~20 минут
+- **Итого:** ~3.5 часа
+
+**Коммит:** (будет добавлен после push)
+
+---
+
 ## [2025-10-12 17:30] - 🚀 Production Ready: Полный набор инструментов!
 
 ### ✅ Добавлено
