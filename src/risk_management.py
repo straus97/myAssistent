@@ -360,8 +360,27 @@ def run_risk_checks(db: Session) -> Dict:
         exposure_ok, exposure_warning = check_max_exposure(config)
         if not exposure_ok:
             results["warnings"].append(exposure_warning)
+            # Отправляем более понятное уведомление
             if config.get("max_exposure", {}).get("notify", True):
-                send_telegram(f"[RISK] WARNING: {exposure_warning}")
+                equity_data = paper_get_equity()
+                equity = float(equity_data.get("equity", 0))
+                positions_value = equity - float(equity_data.get("cash", 0))
+                exposure_pct = (positions_value / equity * 100) if equity > 0 else 0
+                max_pct = config.get("max_exposure", {}).get("percentage", 0.50) * 100
+                
+                message = "[RISK MANAGER] Предупреждение о рисках\n\n"
+                message += f"Общий размер позиций слишком большой!\n\n"
+                message += f"Текущий: {exposure_pct:.1f}%\n"
+                message += f"Максимум: {max_pct:.0f}%\n\n"
+                message += f"Что это значит:\n"
+                message += f"- Новые сделки заблокированы\n"
+                message += f"- Старые позиции закроются по SL/TP\n"
+                message += f"- Exposure снизится автоматически\n\n"
+                message += f"Капитал: ${equity:.2f}\n"
+                message += f"В позициях: ${positions_value:.2f}\n"
+                message += f"Свободно: ${equity - positions_value:.2f}"
+                
+                send_telegram(message)
         
         # Загружаем trailing stops
         trailing_stops = load_trailing_stops()
