@@ -179,7 +179,14 @@ def paper_open_buy_manual(
 
     pos = _find_pos(st, exchange, symbol)
     if pos is None:
-        pos = {"exchange": exchange, "symbol": symbol, "timeframe": timeframe, "qty": 0.0, "avg_price": 0.0}
+        pos = {
+            "exchange": exchange,
+            "symbol": symbol,
+            "timeframe": timeframe,
+            "qty": 0.0,
+            "avg_price": 0.0,
+            "opened_at": ts_iso
+        }
         st["positions"].append(pos)
     old_qty = float(pos["qty"])
     old_avg = float(pos["avg_price"])

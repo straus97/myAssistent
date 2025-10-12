@@ -43,6 +43,7 @@ from src.routers import (
     mlflow_registry,
     validation,
     paper_monitor,
+    risk_management,
 )
 
 # Импорты зависимостей и утилит
@@ -182,6 +183,7 @@ app.include_router(rl.router)
 app.include_router(mlflow_registry.router)
 app.include_router(validation.router)
 app.include_router(paper_monitor.router)
+app.include_router(risk_management.router)
 
 
 # ============== Корневые Эндпоинты ==============
@@ -500,6 +502,30 @@ def job_paper_monitor():
         print(f"[scheduler] paper_monitor exception: {e}")
 
 
+def job_risk_checks():
+    """Risk Management - автоматические проверки stop-loss, take-profit, trailing stop"""
+    from src.risk_management import run_risk_checks, load_risk_config
+    
+    # Проверяем, включен ли risk management
+    config = load_risk_config()
+    if not config.get("enabled", True):
+        return
+    
+    with SessionLocal() as db:
+        try:
+            result = run_risk_checks(db)
+            if result.get("status") == "ok":
+                closed_count = result.get("positions_closed", 0)
+                if closed_count > 0:
+                    print(f"[scheduler] risk_checks: {closed_count} positions closed")
+            else:
+                errors = result.get("errors", [])
+                if errors:
+                    print(f"[scheduler] risk_checks errors: {errors}")
+        except Exception as e:
+            print(f"[scheduler] risk_checks exception: {e}")
+
+
 def _model_needs_retrain(db: Session, exchange: str, symbol: str, timeframe: str, horizon_steps: int, policy: dict, df_len: int = 0):
     """
     Проверяет, нужно ли переобучать модель по SLA политике
@@ -731,6 +757,17 @@ def on_startup():
         max_instances=1,
         coalesce=True,
         misfire_grace_time=60,
+    )
+    
+    # Risk Management Checks
+    scheduler.add_job(
+        job_risk_checks,
+        IntervalTrigger(minutes=5),
+        id="risk_checks",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=30,
     )
     
     try:
