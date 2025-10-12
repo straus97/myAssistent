@@ -226,8 +226,9 @@ def health():
     
     # Database check
     try:
+        from sqlalchemy import text
         with SessionLocal() as db:
-            db.execute("SELECT 1")
+            db.execute(text("SELECT 1"))
             health_status["services"]["database"] = "ok"
     except Exception as e:
         health_status["services"]["database"] = f"error: {e}"
@@ -246,9 +247,10 @@ def health():
     
     # Model check
     try:
-        from .model_registry import get_active_model_path
-        model_path = get_active_model_path("bybit", "BTC/USDT", "1h")
-        health_status["services"]["model"] = "ok" if model_path else "no_model"
+        # Проверяем наличие модели в artifacts/models/
+        models_dir = Path("artifacts/models")
+        model_files = list(models_dir.glob("model_*.pkl")) if models_dir.exists() else []
+        health_status["services"]["model"] = "ok" if model_files else "no_model"
     except Exception as e:
         health_status["services"]["model"] = f"error: {e}"
     

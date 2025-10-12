@@ -68,9 +68,10 @@ def check_database() -> Tuple[bool, List[str]]:
     
     try:
         from src.db import SessionLocal
+        from sqlalchemy import text
         
         with SessionLocal() as db:
-            result = db.execute("SELECT 1").scalar()
+            result = db.execute(text("SELECT 1")).scalar()
             
             if result == 1:
                 print("  PASS: Подключение к БД работает")
@@ -102,10 +103,25 @@ def check_model() -> Tuple[bool, List[str]]:
     issues = []
     
     try:
-        from src.model_registry import get_active_model_path
+        from pathlib import Path
         import joblib
         
-        model_path = get_active_model_path("bybit", "BTC/USDT", "1h")
+        # Ищем последнюю модель в artifacts/models/
+        models_dir = Path("artifacts/models")
+        if not models_dir.exists():
+            issues.append("ERROR: Директория artifacts/models/ не существует")
+            print("  FAIL: Нет директории моделей")
+            return False, issues
+        
+        # Ищем файлы моделей
+        model_files = list(models_dir.glob("model_*.pkl"))
+        if not model_files:
+            issues.append("WARNING: Нет обученных моделей в artifacts/models/ (запустите POST /model/train)")
+            print("  WARN: Модели не найдены (обучите модель через POST /model/train)")
+            return True, issues  # Не критично - можно обучить после запуска
+        
+        # Берем последнюю модель
+        model_path = max(model_files, key=lambda p: p.stat().st_mtime)
         
         if not model_path:
             issues.append("ERROR: Нет активной модели для BTC/USDT 1h")

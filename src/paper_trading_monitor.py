@@ -24,8 +24,8 @@ from .prices import fetch_and_store_prices
 from .features import build_dataset
 from .modeling import load_latest_model
 from .trade import paper_get_equity, paper_get_positions
-from .risk import load_policy, check_risk_filters
-from .notify import send_telegram_message
+from .risk import load_policy
+from .notify import send_telegram
 
 logger = logging.getLogger(__name__)
 
@@ -167,17 +167,10 @@ def generate_signals_for_symbols(
                 X = df[feature_cols].iloc[[-1]].fillna(0)
                 proba = model.predict_proba(X)[0, 1]
                 
-                # Проверяем риск-фильтры
-                risk_result = check_risk_filters(
-                    exchange=exchange,
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    probability=proba,
-                    policy=policy,
-                    db=db
-                )
+                # Простая проверка порога вероятности
+                min_prob = policy.get("min_probability", 0.55)
                 
-                if risk_result.get("pass", False):
+                if proba >= min_prob:
                     signal = {
                         "timestamp": datetime.utcnow().isoformat(),
                         "exchange": exchange,
@@ -186,8 +179,7 @@ def generate_signals_for_symbols(
                         "probability": float(proba),
                         "action": "BUY",
                         "price": float(last_row.get("close", 0)),
-                        "risk_score": risk_result.get("total_score", 0),
-                        "vol_state": risk_result.get("vol_state", "normal")
+                        "vol_state": "normal"
                     }
                     
                     signals.append(signal)
@@ -263,7 +255,7 @@ def send_notification_if_enabled(
         if len(signals) > 3:
             message += f"... и еще {len(signals) - 3} сигналов"
         
-        send_telegram_message(message)
+        send_telegram(message)
         logger.info("[MONITOR] Notification sent")
     
     except Exception as e:

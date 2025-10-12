@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from .db import SessionLocal, Price
 from .trade import paper_get_positions, paper_get_equity, paper_close_pair
-from .notify import send_telegram_message
+from .notify import send_telegram
 
 logger = logging.getLogger(__name__)
 
@@ -453,7 +453,7 @@ def run_risk_checks(db: Session) -> Dict:
                         message += f"Entry: ${entry_price:.2f}\n"
                         message += f"Close: ${current_price:.2f}\n"
                         message += f"Reason: {reason}"
-                        send_telegram_message(message)
+                        send_telegram(message)
                     
                     # Удаляем из trailing stops если был
                     pos_key = f"{exchange}_{symbol}_{timeframe}"

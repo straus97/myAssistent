@@ -20,9 +20,8 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from ..db import get_db
+from ..dependencies import get_db, require_api_key
 from ..modeling import walk_forward_cv
-from ..dependencies import require_api_key
 
 router = APIRouter(prefix="/validation", tags=["Validation"])
 
