@@ -26,6 +26,7 @@ from .modeling import load_latest_model
 from .trade import paper_get_equity, paper_get_positions
 from .risk import load_policy
 from .notify import send_telegram
+from .simple_strategies import ema_crossover_strategy
 
 logger = logging.getLogger(__name__)
 
@@ -124,13 +125,97 @@ def update_prices_for_symbols(symbols: List[str], exchange: str, timeframe: str)
         return False
 
 
+def generate_ema_signals_for_symbols(
+    symbols: List[str],
+    exchange: str,
+    timeframe: str,
+    db: Session
+) -> List[Dict]:
+    """
+    Генерирует сигналы EMA Crossover (9/21) для всех символов
+    
+    Используется ВМЕСТО ML модели - простая, но эффективная стратегия!
+    """
+    signals = []
+    
+    try:
+        logger.info(f"[MONITOR EMA] Generating EMA Crossover signals for {len(symbols)} symbols")
+        
+        for symbol in symbols:
+            try:
+                # Загружаем последние 100 свечей
+                prices_query = db.query(Price).filter(
+                    Price.exchange == exchange,
+                    Price.symbol == symbol,
+                    Price.timeframe == timeframe
+                ).order_by(Price.ts.desc()).limit(100).all()
+                
+                if not prices_query or len(prices_query) < 50:
+                    logger.warning(f"[MONITOR EMA] Not enough data for {symbol} (need 50+)")
+                    continue
+                
+                # Reverse (старые -> новые)
+                prices_query = list(reversed(prices_query))
+                
+                # Convert to DataFrame
+                df = pd.DataFrame([
+                    {
+                        "timestamp": pd.Timestamp(p.ts, unit='ms', tz='UTC'),
+                        "close": p.close,
+                        "open": p.open,
+                        "high": p.high,
+                        "low": p.low,
+                        "volume": p.volume
+                    }
+                    for p in prices_query
+                ])
+                
+                df = df.set_index("timestamp")
+                
+                # Генерируем EMA Crossover сигналы (9/21)
+                ema_signals = ema_crossover_strategy(df, fast_period=9, slow_period=21)
+                
+                # Последний сигнал
+                latest_signal = int(ema_signals.iloc[-1])
+                current_price = float(df['close'].iloc[-1])
+                timestamp = df.index[-1]
+                
+                # Только BUY сигналы
+                if latest_signal == 1:
+                    signal_data = {
+                        "exchange": exchange,
+                        "symbol": symbol,
+                        "timeframe": timeframe,
+                        "signal": "BUY",
+                        "price": current_price,
+                        "timestamp": str(timestamp),
+                        "probability": 0.85,  # Фиксированная "вероятность" для совместимости
+                        "strategy": "EMA Crossover (9/21)",
+                        "vol_state": "normal"  # Можно добавить определение волатильности
+                    }
+                    
+                    signals.append(signal_data)
+                    logger.info(f"[MONITOR EMA] BUY signal for {symbol} @ ${current_price:.4f}")
+                
+            except Exception as e:
+                logger.error(f"[MONITOR EMA] Error processing {symbol}: {e}")
+                continue
+        
+        logger.info(f"[MONITOR EMA] Generated {len(signals)} BUY signals")
+        return signals
+    
+    except Exception as e:
+        logger.error(f"[MONITOR EMA] Error generating signals: {e}")
+        return []
+
+
 def generate_signals_for_symbols(
     symbols: List[str],
     exchange: str,
     timeframe: str,
     db: Session
 ) -> List[Dict]:
-    """Генерирует сигналы для всех символов"""
+    """Генерирует сигналы для всех символов (LEGACY ML VERSION)"""
     signals = []
     
     try:
@@ -304,11 +389,11 @@ def run_monitor_update() -> Dict:
         if not prices_updated:
             results["errors"].append("Failed to update prices")
         
-        # 2. Генерируем сигналы
+        # 2. Генерируем сигналы (EMA Crossover вместо ML!)
         db = SessionLocal()
         try:
-            logger.info("[MONITOR] Generating signals...")
-            signals = generate_signals_for_symbols(symbols, exchange, timeframe, db)
+            logger.info("[MONITOR] Generating EMA Crossover signals...")
+            signals = generate_ema_signals_for_symbols(symbols, exchange, timeframe, db)
             results["signals"] = signals
             
             # 3. Исполняем сигналы (если включено)

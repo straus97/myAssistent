@@ -368,17 +368,22 @@ def run_risk_checks(db: Session) -> Dict:
                 exposure_pct = (positions_value / equity * 100) if equity > 0 else 0
                 max_pct = config.get("max_exposure", {}).get("percentage", 0.50) * 100
                 
-                message = "[RISK MANAGER] Предупреждение о рисках\n\n"
-                message += f"Общий размер позиций слишком большой!\n\n"
-                message += f"Текущий: {exposure_pct:.1f}%\n"
-                message += f"Максимум: {max_pct:.0f}%\n\n"
-                message += f"Что это значит:\n"
-                message += f"- Новые сделки заблокированы\n"
-                message += f"- Старые позиции закроются по SL/TP\n"
-                message += f"- Exposure снизится автоматически\n\n"
-                message += f"Капитал: ${equity:.2f}\n"
-                message += f"В позициях: ${positions_value:.2f}\n"
-                message += f"Свободно: ${equity - positions_value:.2f}"
+                message = "⚠️ РИСК МЕНЕДЖЕР\n"
+                message += "━━━━━━━━━━━━━━━━━━━━\n\n"
+                message += "🚨 ВЫСОКИЙ EXPOSURE\n\n"
+                message += f"📊 ТЕКУЩИЙ СТАТУС:\n"
+                message += f"• Exposure: {exposure_pct:.1f}% (лимит: {max_pct:.0f}%)\n"
+                message += f"• Превышение: {exposure_pct - max_pct:.1f}%\n\n"
+                message += f"💰 КАПИТАЛ:\n"
+                message += f"• Всего: ${equity:,.2f}\n"
+                message += f"• В позициях: ${positions_value:,.2f}\n"
+                message += f"• Свободно: ${equity - positions_value:,.2f}\n\n"
+                message += f"🛡️ ЗАЩИТНЫЕ МЕРЫ:\n"
+                message += f"✓ Новые сделки ЗАБЛОКИРОВАНЫ\n"
+                message += f"✓ Открытые позиции под контролем\n"
+                message += f"✓ SL/TP активны\n\n"
+                message += f"💡 РЕКОМЕНДАЦИЯ:\n"
+                message += f"Дождаться закрытия позиций по Stop Loss / Take Profit"
                 
                 send_telegram(message)
         
@@ -467,11 +472,40 @@ def run_risk_checks(db: Session) -> Dict:
                     
                     # Отправляем уведомление
                     if config.get(action.split("_")[0], {}).get("notify", True):
-                        message = f"[RISK] {action.upper()}\n"
-                        message += f"{symbol}: {current_pnl_pct:+.2f}%\n"
-                        message += f"Entry: ${entry_price:.2f}\n"
-                        message += f"Close: ${current_price:.2f}\n"
-                        message += f"Reason: {reason}"
+                        # Улучшенное форматирование уведомлений
+                        action_emoji = {
+                            "stop_loss": "🛑",
+                            "take_profit": "🎯",
+                            "trailing_stop": "📉",
+                            "max_age": "⏰"
+                        }.get(action, "⚠️")
+                        
+                        action_name = {
+                            "stop_loss": "STOP LOSS",
+                            "take_profit": "TAKE PROFIT",
+                            "trailing_stop": "TRAILING STOP",
+                            "max_age": "MAX AGE"
+                        }.get(action, action.upper().replace("_", " "))
+                        
+                        pnl_emoji = "✅" if current_pnl_pct > 0 else "❌"
+                        
+                        message = f"{action_emoji} {action_name}\n"
+                        message += f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                        message += f"💰 Пара: {symbol}\n"
+                        message += f"{pnl_emoji} P&L: {current_pnl_pct:+.2f}%\n\n"
+                        message += f"📊 ДЕТАЛИ:\n"
+                        message += f"• Вход: ${entry_price:.4f}\n"
+                        message += f"• Выход: ${current_price:.4f}\n\n"
+                        message += f"📝 Причина:\n{reason}\n\n"
+                        
+                        # Добавляем совет
+                        if action == "stop_loss":
+                            message += "💡 СОВЕТ:\nУбыток зафиксирован, защищая капитал"
+                        elif action == "take_profit":
+                            message += "💡 СОВЕТ:\nПрибыль зафиксирована, поздравляем!"
+                        elif action == "trailing_stop":
+                            message += "💡 СОВЕТ:\nПрибыль частично зафиксирована"
+                        
                         send_telegram(message)
                     
                     # Удаляем из trailing stops если был

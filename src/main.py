@@ -48,6 +48,7 @@ from src.routers import (
     validation,
     paper_monitor,
     risk_management,
+    simple_strategy,
 )
 
 # Импорты зависимостей и утилит
@@ -188,6 +189,7 @@ app.include_router(mlflow_registry.router)
 app.include_router(validation.router)
 app.include_router(paper_monitor.router)
 app.include_router(risk_management.router)
+app.include_router(simple_strategy.router)
 
 
 # ============== Корневые Эндпоинты ==============
