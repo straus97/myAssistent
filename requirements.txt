@@ -48,6 +48,7 @@ tqdm>=4.66  # Progress bars для миграции
 mlflow>=2.9
 prometheus-fastapi-instrumentator>=6.1
 prometheus-client>=0.19
+optuna>=3.5  # Hyperparameter optimization
 
 # Reinforcement Learning
 stable-baselines3[extra]>=2.0
