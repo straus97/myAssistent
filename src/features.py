@@ -267,56 +267,59 @@ def build_dataset(
                 df[f"tag_{t}_{w}"] = 0.0
 
     # --- on-chain метрики ---
+    # ОТКЛЮЧЕНО В PHASE 2: статичные фичи не дают value
     # Получаем последние значения (обновляются раз в день для всех строк)
-    try:
-        asset = symbol.split("/")[0] if "/" in symbol else "BTC"
-        onchain_feats = get_onchain_features(asset)  # Новый бесплатный API!
-        for key, value in onchain_feats.items():
-            df[key] = value
-    except Exception as e:
-        print(f"[OnChain] Warning: {e}")
-        # Placeholder values если API недоступен
-        # Новые on-chain фичи (CoinGecko + Blockchain.info + CoinGlass)
-        onchain_keys = [
-            "onchain_market_cap", "onchain_volume_24h", "onchain_circulating_supply",
-            "onchain_price_change_24h", "onchain_price_change_7d", "onchain_price_change_30d",
-            "onchain_hash_rate", "onchain_difficulty", "onchain_tx_count_24h",
-            "onchain_funding_rate", "onchain_liquidations_24h",
-            "onchain_long_liquidations", "onchain_short_liquidations"
-        ]
-        for key in onchain_keys:
-            df[key] = 0.0
+    # try:
+    #     asset = symbol.split("/")[0] if "/" in symbol else "BTC"
+    #     onchain_feats = get_onchain_features(asset)  # Новый бесплатный API!
+    #     for key, value in onchain_feats.items():
+    #         df[key] = value
+    # except Exception as e:
+    #     print(f"[OnChain] Warning: {e}")
+    #     # Placeholder values если API недоступен
+    #     # Новые on-chain фичи (CoinGecko + Blockchain.info + CoinGlass)
+    #     onchain_keys = [
+    #         "onchain_market_cap", "onchain_volume_24h", "onchain_circulating_supply",
+    #         "onchain_price_change_24h", "onchain_price_change_7d", "onchain_price_change_30d",
+    #         "onchain_hash_rate", "onchain_difficulty", "onchain_tx_count_24h",
+    #         "onchain_funding_rate", "onchain_liquidations_24h",
+    #         "onchain_long_liquidations", "onchain_short_liquidations"
+    #     ]
+    #     for key in onchain_keys:
+    #         df[key] = 0.0
     
     # --- макроэкономические данные ---
-    try:
-        macro_feats = get_macro_features()
-        for key, value in macro_feats.items():
-            df[key] = value
-    except Exception as e:
-        print(f"[Macro] Warning: {e}")
-        # Новые macro фичи (Fear & Greed + Yahoo Finance)
-        macro_keys = [
-            "macro_fear_greed", "macro_fear_greed_norm", "macro_dxy",
-            "macro_gold_price", "macro_oil_price", "macro_fed_rate",
-            "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread"
-        ]
-        for key in macro_keys:
-            df[key] = 0.0
+    # ОТКЛЮЧЕНО В PHASE 2: статичные фичи не дают value
+    # try:
+    #     macro_feats = get_macro_features()
+    #     for key, value in macro_feats.items():
+    #         df[key] = value
+    # except Exception as e:
+    #     print(f"[Macro] Warning: {e}")
+    #     # Новые macro фичи (Fear & Greed + Yahoo Finance)
+    #     macro_keys = [
+    #         "macro_fear_greed", "macro_fear_greed_norm", "macro_dxy",
+    #         "macro_gold_price", "macro_oil_price", "macro_fed_rate",
+    #         "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread"
+    #     ]
+    #     for key in macro_keys:
+    #         df[key] = 0.0
     
     # --- social signals ---
-    try:
-        social_feats = get_social_features()
-        for key, value in social_feats.items():
-            df[key] = value
-    except Exception as e:
-        print(f"[Social] Warning: {e}")
-        # Новые social фичи (Reddit public JSON + Google Trends)
-        social_keys = [
-            "social_reddit_posts", "social_reddit_sentiment", "social_reddit_avg_score",
-            "social_google_trends", "social_twitter_mentions", "social_twitter_sentiment"
-        ]
-        for key in social_keys:
-            df[key] = 0.0
+    # ОТКЛЮЧЕНО В PHASE 2: статичные фичи не дают value
+    # try:
+    #     social_feats = get_social_features()
+    #     for key, value in social_feats.items():
+    #         df[key] = value
+    # except Exception as e:
+    #     print(f"[Social] Warning: {e}")
+    #     # Новые social фичи (Reddit public JSON + Google Trends)
+    #     social_keys = [
+    #         "social_reddit_posts", "social_reddit_sentiment", "social_reddit_avg_score",
+    #         "social_google_trends", "social_twitter_mentions", "social_twitter_sentiment"
+    #     ]
+    #     for key in social_keys:
+    #         df[key] = 0.0
 
     # --- LAG FEATURES (критично для временных рядов!) ---
     # Лаги основных индикаторов
@@ -412,25 +415,26 @@ def build_dataset(
         ]
         + [f"tag_{t}_{6}" for t in TAGS]
         + [f"tag_{t}_{24}" for t in TAGS]
+        # ОТКЛЮЧЕНО В PHASE 2: статичные фичи (28 фич)
         # On-chain фичи (CoinGecko + Blockchain.info + CoinGlass)
-        + [
-            "onchain_market_cap", "onchain_volume_24h", "onchain_circulating_supply",
-            "onchain_price_change_24h", "onchain_price_change_7d", "onchain_price_change_30d",
-            "onchain_hash_rate", "onchain_difficulty", "onchain_tx_count_24h",
-            "onchain_funding_rate", "onchain_liquidations_24h",
-            "onchain_long_liquidations", "onchain_short_liquidations",
-        ]
+        # + [
+        #     "onchain_market_cap", "onchain_volume_24h", "onchain_circulating_supply",
+        #     "onchain_price_change_24h", "onchain_price_change_7d", "onchain_price_change_30d",
+        #     "onchain_hash_rate", "onchain_difficulty", "onchain_tx_count_24h",
+        #     "onchain_funding_rate", "onchain_liquidations_24h",
+        #     "onchain_long_liquidations", "onchain_short_liquidations",
+        # ]
         # Макро фичи (Fear & Greed + Yahoo Finance)
-        + [
-            "macro_fear_greed", "macro_fear_greed_norm", "macro_dxy",
-            "macro_gold_price", "macro_oil_price", "macro_fed_rate",
-            "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread",
-        ]
+        # + [
+        #     "macro_fear_greed", "macro_fear_greed_norm", "macro_dxy",
+        #     "macro_gold_price", "macro_oil_price", "macro_fed_rate",
+        #     "macro_treasury_10y", "macro_treasury_2y", "macro_yield_spread",
+        # ]
         # Social фичи (Reddit public JSON + Google Trends)
-        + [
-            "social_reddit_posts", "social_reddit_sentiment", "social_reddit_avg_score",
-            "social_google_trends", "social_twitter_mentions", "social_twitter_sentiment",
-        ]
+        # + [
+        #     "social_reddit_posts", "social_reddit_sentiment", "social_reddit_avg_score",
+        #     "social_google_trends", "social_twitter_mentions", "social_twitter_sentiment",
+        # ]
     )
 
     # Добавляем колонку timestamp ПЕРЕД dropna (из индекса)
@@ -444,8 +448,9 @@ def build_dataset(
     df = df.set_index("timestamp")
     
     print(f"[Features] Dataset built: {len(df)} rows x {len(feature_cols)} features")
-    print(f"[Features] Base: 6 price, Lag: 12, Time: 11, Technical: 37, News: {2 + len(TAGS)*2}, OnChain: 13, Macro: 9, Social: 6")
-    print(f"[Features] Total dynamic features: ~65, Total features: {len(feature_cols)}")
+    print(f"[Features] Base: 6 price, Lag: 12, Time: 11, Technical: 37, News: {2 + len(TAGS)*2}")
+    print(f"[Features] PHASE 2: Static features (OnChain/Macro/Social: 28) DISABLED")
+    print(f"[Features] Total dynamic features: {len(feature_cols)} (was 112, removed 28 static)")
     return df, feature_cols
 
 

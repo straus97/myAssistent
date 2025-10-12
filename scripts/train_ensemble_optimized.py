@@ -21,6 +21,11 @@ import numpy as np
 from sqlalchemy.orm import Session
 import optuna
 from optuna.samplers import TPESampler
+import warnings
+
+# Подавляем предупреждения для чистого вывода
+warnings.filterwarnings("ignore")
+optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 # Загружаем .env
 from dotenv import load_dotenv
@@ -43,8 +48,9 @@ ARTIFACTS_DIR.mkdir(exist_ok=True)
 EXCHANGE = "bybit"
 SYMBOL = "BTC/USDT"
 TIMEFRAME = "1h"
-N_TRIALS = 30  # Количество попыток для Optuna (по 10 на модель для быстрого теста)
-TIMEOUT = 1800  # 30 минут максимум на оптимизацию
+# PHASE 2: увеличенный budget для серьезной оптимизации
+N_TRIALS = 150  # По 50 trials на модель (было 30)
+TIMEOUT = 7200  # 2 часа максимум на оптимизацию (было 1800 = 30 мин)
 
 
 def optimize_xgboost(X_train, y_train, X_val, y_val, n_trials=50):
@@ -164,7 +170,7 @@ def main():
         db.close()
     
     print(f"Dataset: {len(df)} rows x {len(feature_cols)} features")
-    print(f"Date range: {df.index.min()} → {df.index.max()}")
+    print(f"Date range: {df.index.min()} -> {df.index.max()}")
     print()
     
     # 2. Split на train/validation/test (60/20/20)
