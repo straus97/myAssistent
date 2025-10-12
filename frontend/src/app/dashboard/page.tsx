@@ -45,39 +45,39 @@ export default function Dashboard() {
         {/* Header */}
         <header className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-            MyAssistent Dashboard
+            Панель Управления
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Autonomous Trading Bot • ML-powered • Version 1.0
+            Торговый бот на ИИ • Прибыльная модель • Версия 1.0
           </p>
         </header>
 
         {/* Key Metrics */}
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            Portfolio Overview
+            💰 Мой Портфель
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <MetricsCard
-              title="Total Equity"
+              title="Общая Сумма"
               value={equityLoading ? '...' : `$${equity?.data?.equity?.toFixed(2) || '0.00'}`}
               trend="up"
             />
             <MetricsCard
-              title="Cash"
+              title="Наличные"
               value={equityLoading ? '...' : `$${equity?.data?.cash?.toFixed(2) || '0.00'}`}
               trend="neutral"
             />
             <MetricsCard
-              title="Positions"
+              title="Позиций Открыто"
               value={positionsLoading ? '...' : positions?.data?.positions?.length || 0}
-              subtitle={`Value: $${equity?.data?.positions_value?.toFixed(2) || '0.00'}`}
+              subtitle={`Стоимость: $${equity?.data?.positions_value?.toFixed(2) || '0.00'}`}
               trend="neutral"
             />
             <MetricsCard
-              title="Return"
+              title="Доходность"
               value="+0.16%"
-              subtitle="Sharpe: 0.77"
+              subtitle="Надёжность: 0.77"
               trend="up"
             />
           </div>
@@ -86,39 +86,42 @@ export default function Dashboard() {
         {/* Equity Chart */}
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            Equity Curve
+            📈 График Прибыли
           </h2>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <EquityChart data={equityHistory} height={300} />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+              Зелёная линия — общая сумма • Синяя — наличные • Оранжевая — стоимость позиций
+            </p>
           </div>
         </section>
 
         {/* Positions Table */}
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            Open Positions
+            💼 Открытые Позиции
           </h2>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             {positionsLoading ? (
-              <div className="p-6 text-center text-gray-500">Loading...</div>
+              <div className="p-6 text-center text-gray-500">Загрузка...</div>
             ) : positions?.data?.positions && positions.data.positions.length > 0 ? (
               <table className="w-full">
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Exchange
+                      Биржа
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Symbol
+                      Монета
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Quantity
+                      Количество
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Avg Price
+                      Цена Покупки
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Current Value
+                      Текущая Стоимость
                     </th>
                   </tr>
                 </thead>
@@ -155,22 +158,25 @@ export default function Dashboard() {
         {/* Recent Signals */}
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            Недавние Сигналы
+            🔔 Сигналы (Что Советует Купить/Продать)
           </h2>
           <SignalsTable 
             signals={signals?.data || []} 
             loading={signalsLoading} 
           />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            💡 Сигналы обновляются каждые 30 секунд. BUY = купить, SELL = продать, HOLD = держать.
+          </p>
         </section>
 
         {/* Model Health */}
         <section>
           <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            Состояние Моделей
+            🤖 Состояние Модели ИИ
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {healthLoading ? (
-              <div className="col-span-full p-6 text-center text-gray-500">Loading...</div>
+              <div className="col-span-full p-6 text-center text-gray-500">Загрузка...</div>
             ) : modelHealth?.data && modelHealth.data.length > 0 ? (
               modelHealth.data.map((model: any, idx: number) => (
                 <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
@@ -190,26 +196,26 @@ export default function Dashboard() {
                           : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                       }`}
                     >
-                      {model.fresh ? 'Fresh' : 'Stale'}
+                      {model.fresh ? '✅ Актуальна' : '⚠️ Требует обновления'}
                     </span>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">ROC AUC:</span>
+                      <span className="text-gray-500 dark:text-gray-400">Точность:</span>
                       <span className="font-medium text-gray-900 dark:text-white">
-                        {model.auc?.toFixed(3) || 'N/A'}
+                        {model.auc ? `${(model.auc * 100).toFixed(1)}%` : 'Н/Д'}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">Age:</span>
+                      <span className="text-gray-500 dark:text-gray-400">Возраст:</span>
                       <span className="font-medium text-gray-900 dark:text-white">
-                        {model.age_days?.toFixed(1) || '0'} days
+                        {model.age_days?.toFixed(0) || '0'} дней
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">Features:</span>
+                      <span className="text-gray-500 dark:text-gray-400">Показателей:</span>
                       <span className="font-medium text-gray-900 dark:text-white">
-                        {model.n_features || 'N/A'}
+                        {model.n_features || 'Н/Д'}
                       </span>
                     </div>
                   </div>

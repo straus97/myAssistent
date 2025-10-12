@@ -28,7 +28,7 @@ export default function SignalsTable({ signals, loading = false }: SignalsTableP
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="text-center text-gray-500 dark:text-gray-400">
-          Нет недавних сигналов
+          Пока нет сигналов. Дождитесь генерации новых или обучите модель.
         </div>
       </div>
     );
@@ -45,6 +45,17 @@ export default function SignalsTable({ signals, loading = false }: SignalsTableP
     }
   };
 
+  const getDirectionText = (direction: string) => {
+    switch (direction) {
+      case 'BUY':
+        return '🟢 КУПИТЬ';
+      case 'SELL':
+        return '🔴 ПРОДАТЬ';
+      default:
+        return '⚪ ДЕРЖАТЬ';
+    }
+  };
+
   const getProbabilityColor = (prob: number) => {
     if (prob >= 0.7) return 'text-green-600 dark:text-green-400 font-bold';
     if (prob >= 0.6) return 'text-green-500 dark:text-green-500';
@@ -58,19 +69,16 @@ export default function SignalsTable({ signals, loading = false }: SignalsTableP
         <thead className="bg-gray-50 dark:bg-gray-700">
           <tr>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              Время
+              Когда
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              Пара
+              Монета
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              TF
+              Что Делать
             </th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              Сигнал
-            </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-              Вероятность
+              Уверенность ИИ
             </th>
           </tr>
         </thead>
@@ -87,19 +95,20 @@ export default function SignalsTable({ signals, loading = false }: SignalsTableP
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                 {signal.symbol}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                {signal.timeframe}
+                <div className="text-xs text-gray-500 dark:text-gray-400">{signal.timeframe}</div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getDirectionColor(signal.direction)}`}>
-                  {signal.direction}
+                <span className={`px-4 py-2 rounded-full text-sm font-bold ${getDirectionColor(signal.direction)}`}>
+                  {getDirectionText(signal.direction)}
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm">
                 <span className={getProbabilityColor(signal.prob)}>
-                  {(signal.prob * 100).toFixed(1)}%
+                  {(signal.prob * 100).toFixed(0)}%
                 </span>
+                <div className="text-xs text-gray-400">
+                  {signal.prob >= 0.7 ? 'Высокая' : signal.prob >= 0.6 ? 'Средняя' : 'Низкая'}
+                </div>
               </td>
             </tr>
           ))}
