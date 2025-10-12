@@ -24,7 +24,7 @@ import joblib
 def analyze_feature_importance(model_path: str, feature_cols: list, top_n: int = 20):
     """Анализ важности фич и категоризация"""
     print(f"\n{'='*70}")
-    print(f"📊 FEATURE IMPORTANCE АНАЛИЗ")
+    print(f"[FEATURE IMPORTANCE] АНАЛИЗ")
     print(f"{'='*70}\n")
     
     # Загружаем модель
@@ -32,7 +32,7 @@ def analyze_feature_importance(model_path: str, feature_cols: list, top_n: int =
     model = obj.get("model") if isinstance(obj, dict) else obj
     
     if not hasattr(model, "feature_importances_"):
-        print("❌ Модель не поддерживает feature_importances_")
+        print("[ERROR] Модель не поддерживает feature_importances_")
         return
     
     # Получаем важность фич
@@ -64,11 +64,11 @@ def analyze_feature_importance(model_path: str, feature_cols: list, top_n: int =
     feature_importance['category'] = feature_importance['feature'].apply(categorize_feature)
     
     # Топ-20 фич
-    print(f"🏆 ТОП-{top_n} ВАЖНЫХ ФИЧ:\n")
+    print(f"[TOP] ТОП-{top_n} ВАЖНЫХ ФИЧ:\n")
     print(feature_importance.head(top_n).to_string(index=False))
     
     # Статистика по категориям
-    print(f"\n\n📈 ВАЖНОСТЬ ПО КАТЕГОРИЯМ:\n")
+    print(f"\n\n[CATEGORIES] ВАЖНОСТЬ ПО КАТЕГОРИЯМ:\n")
     category_stats = feature_importance.groupby('category').agg({
         'importance': ['sum', 'mean', 'count']
     }).round(4)
@@ -123,7 +123,7 @@ def analyze_feature_importance(model_path: str, feature_cols: list, top_n: int =
     plt.savefig(output_dir / "feature_importance_by_category.png", dpi=150, bbox_inches='tight')
     plt.close()
     
-    print(f"\n✅ Результаты сохранены:")
+    print(f"\n[OK] Результаты сохранены:")
     print(f"   - {output_dir / 'feature_importance.json'}")
     print(f"   - {output_dir / 'feature_importance_top20.png'}")
     print(f"   - {output_dir / 'feature_importance_by_category.png'}\n")
@@ -134,7 +134,7 @@ def analyze_feature_importance(model_path: str, feature_cols: list, top_n: int =
 def compare_with_baseline(new_metrics: dict, baseline_path: str = "artifacts/metrics.json"):
     """Сравнение новой модели с baseline"""
     print(f"\n{'='*70}")
-    print(f"📊 СРАВНЕНИЕ С BASELINE")
+    print(f"[COMPARISON] СРАВНЕНИЕ С BASELINE")
     print(f"{'='*70}\n")
     
     try:
@@ -159,9 +159,9 @@ def compare_with_baseline(new_metrics: dict, baseline_path: str = "artifacts/met
                 
                 change_str = f"{change_pct:+.1f}%"
                 if change_pct > 0:
-                    change_str = f"✅ {change_str}"
+                    change_str = f"[+] {change_str}"
                 elif change_pct < 0:
-                    change_str = f"❌ {change_str}"
+                    change_str = f"[-] {change_str}"
                 else:
                     change_str = "→ 0.0%"
                 
@@ -176,13 +176,13 @@ def compare_with_baseline(new_metrics: dict, baseline_path: str = "artifacts/met
         avg_improvement = sum(improvements.values()) / len(improvements) if improvements else 0
         
         if avg_improvement > 5:
-            verdict = "🎉 ОТЛИЧНОЕ УЛУЧШЕНИЕ!"
+            verdict = "[EXCELLENT] ОТЛИЧНОЕ УЛУЧШЕНИЕ!"
         elif avg_improvement > 0:
-            verdict = "✅ Улучшение"
+            verdict = "[SUCCESS] Улучшение"
         elif avg_improvement > -5:
-            verdict = "⚠️ Небольшое ухудшение"
+            verdict = "[WARNING] Небольшое ухудшение"
         else:
-            verdict = "❌ Значительное ухудшение"
+            verdict = "[ERROR] Значительное ухудшение"
         
         print(f"Средняя разница: {avg_improvement:+.1f}%")
         print(f"Вердикт: {verdict}")
@@ -191,13 +191,13 @@ def compare_with_baseline(new_metrics: dict, baseline_path: str = "artifacts/met
         return improvements
         
     except FileNotFoundError:
-        print("❌ Baseline метрики не найдены. Текущая модель станет baseline.\n")
+        print("[INFO] Baseline метрики не найдены. Текущая модель станет baseline.\n")
         return None
 
 
 def main():
     print("\n" + "="*70)
-    print("🚀 ОБУЧЕНИЕ МОДЕЛИ И FEATURE IMPORTANCE АНАЛИЗ")
+    print("[TRAINING] ОБУЧЕНИЕ МОДЕЛИ И FEATURE IMPORTANCE АНАЛИЗ")
     print("="*70 + "\n")
     
     # Параметры обучения
@@ -206,24 +206,24 @@ def main():
     TIMEFRAME = "1h"
     HORIZON_STEPS = 6
     
-    print(f"📌 Параметры:")
+    print(f"[PARAMS] Параметры:")
     print(f"   Exchange: {EXCHANGE}")
     print(f"   Symbol: {SYMBOL}")
     print(f"   Timeframe: {TIMEFRAME}")
     print(f"   Horizon: {HORIZON_STEPS} steps\n")
     
     # Инициализация БД
-    print("🔄 Подключение к БД...")
+    print("[CONNECTING] Подключение к БД...")
     db = SessionLocal()
     
     try:
         # Построение датасета
-        print("🔄 Построение датасета с расширенными фичами...")
+        print("[BUILDING] Построение датасета с расширенными фичами...")
         df, feature_cols = build_dataset(db, EXCHANGE, SYMBOL, TIMEFRAME, HORIZON_STEPS)
-        print(f"✅ Датасет построен: {len(df)} строк × {len(feature_cols)} фич\n")
+        print(f"[OK] Датасет построен: {len(df)} строк x {len(feature_cols)} фич\n")
         
         if len(df) < 200:
-            print("❌ Недостаточно данных для обучения (< 200 строк)")
+            print("[ERROR] Недостаточно данных для обучения (< 200 строк)")
             return
         
         # Сохраняем старые метрики как baseline (если есть)
@@ -232,10 +232,10 @@ def main():
             baseline_backup = Path("artifacts/metrics_baseline.json")
             import shutil
             shutil.copy(baseline_path, baseline_backup)
-            print(f"💾 Baseline сохранён: {baseline_backup}\n")
+            print(f"[BACKUP] Baseline сохранён: {baseline_backup}\n")
         
         # Обучение модели
-        print("🔄 Обучение XGBoost модели...")
+        print("[TRAINING] Обучение XGBoost модели...")
         print("   (это может занять 2-5 минут на больших данных)\n")
         
         metrics, model_path = train_xgb_and_save(
@@ -246,8 +246,8 @@ def main():
             mlflow_run_name=f"{SYMBOL}_{TIMEFRAME}_training"
         )
         
-        print(f"\n✅ Модель обучена и сохранена: {model_path}")
-        print(f"\n📊 МЕТРИКИ МОДЕЛИ:")
+        print(f"\n[OK] Модель обучена и сохранена: {model_path}")
+        print(f"\n[METRICS] МЕТРИКИ МОДЕЛИ:")
         print(f"   - Accuracy: {metrics['accuracy']:.4f}")
         print(f"   - ROC AUC: {metrics.get('roc_auc', 0):.4f}")
         print(f"   - Threshold: {metrics['threshold']:.4f}")
@@ -263,10 +263,10 @@ def main():
         if Path("artifacts/metrics_baseline.json").exists():
             compare_with_baseline(metrics, "artifacts/metrics_baseline.json")
         else:
-            print("ℹ️ Baseline метрики отсутствуют. Текущая модель - первая.\n")
+            print("[INFO] Baseline метрики отсутствуют. Текущая модель - первая.\n")
         
         print("="*70)
-        print("✅ ВСЁ ГОТОВО!")
+        print("[SUCCESS] ВСЁ ГОТОВО!")
         print("="*70)
         print("\nСледующие шаги:")
         print("1. Проверьте MLflow UI: http://localhost:5000")
@@ -274,7 +274,7 @@ def main():
         print("3. Посмотрите графики в artifacts/analysis/\n")
         
     except Exception as e:
-        print(f"\n❌ ОШИБКА: {e}")
+        print(f"\n[ERROR] ОШИБКА: {e}")
         import traceback
         traceback.print_exc()
     finally:
