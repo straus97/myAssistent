@@ -129,15 +129,17 @@ docker-compose up -d postgres mlflow prometheus grafana
 echo [*] Waiting for services to be ready (15 sec)...
 timeout /t 15 /nobreak >NUL
 
-REM === Start Backend ===
-echo [*] Starting Backend API at http://127.0.0.1:8000
+REM === Start Backend with Auto-Reload ===
+echo [*] Starting Backend API at http://127.0.0.1:8000 (AUTO-RELOAD ENABLED)
 echo [*] MLFLOW_TRACKING_URI = %MLFLOW_TRACKING_URI%
-start "backend" /D "%CD%" cmd /k "set MLFLOW_TRACKING_URI=%MLFLOW_TRACKING_URI% && set ENABLE_METRICS=%ENABLE_METRICS% && set API_KEY=%API_KEY% && set DATABASE_URL=%DATABASE_URL% && .\.venv\Scripts\python.exe -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --log-level debug"
+echo [*] Backend will auto-restart when Python files change
+start "backend" /D "%CD%" cmd /k "set MLFLOW_TRACKING_URI=%MLFLOW_TRACKING_URI% && set ENABLE_METRICS=%ENABLE_METRICS% && set API_KEY=%API_KEY% && set DATABASE_URL=%DATABASE_URL% && .\.venv\Scripts\python.exe -m uvicorn src.main:app --host 127.0.0.1 --port 8000 --log-level debug --reload"
 
 timeout /t 3 /nobreak >NUL
 
-REM === Start Streamlit UI ===
-echo [*] Starting Streamlit UI at http://localhost:8501
+REM === Start Streamlit UI with Auto-Reload ===
+echo [*] Starting Streamlit UI at http://localhost:8501 (AUTO-RELOAD BUILT-IN)
+echo [*] Streamlit will auto-reload when files change
 start "streamlit-ui" cmd /k "%PY% -m streamlit run streamlit_app.py --server.headless true --server.port 8501"
 
 timeout /t 2 /nobreak >NUL
@@ -156,7 +158,8 @@ if not exist node_modules (
     call npm install
 )
 
-echo [*] Starting Next.js Frontend at http://localhost:3000
+echo [*] Starting Next.js Frontend at http://localhost:3000 (HOT RELOAD BUILT-IN)
+echo [*] Next.js will auto-reload when files change
 start "nextjs-frontend" cmd /k "npm run dev"
 
 cd ..
@@ -191,6 +194,17 @@ start "" http://localhost:3001
 echo.
 echo [OK] All windows (backend, streamlit-ui, nextjs-frontend) should remain open.
 echo      Closing a window will stop the corresponding service.
+echo.
+echo ====================================
+echo   AUTO-RELOAD FEATURES ENABLED
+echo ====================================
+echo.
+echo Backend (FastAPI):  Auto-restart on .py file changes (--reload)
+echo Streamlit:          Auto-reload on .py file changes (built-in)
+echo Next.js:            Hot reload on .tsx/.ts/.css changes (built-in)
+echo.
+echo NO NEED TO RESTART start_all.bat after code changes!
+echo Just save your files and services will reload automatically.
 echo.
 echo To stop Docker containers:
 echo   docker-compose down

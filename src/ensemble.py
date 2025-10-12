@@ -306,3 +306,217 @@ def predict_ensemble(
     else:
         raise ValueError(f"Unknown ensemble type: {ensemble_type}")
 
+
+# ===========================
+# PHASE 3: Cross-Validation Optimization Functions
+# ===========================
+
+def optimize_xgboost_cv(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    n_trials: int = 30,
+    timeout: int | None = None
+) -> Dict:
+    """
+    Optuna optimization для XGBoost с акцентом на борьбу с overfitting.
+    
+    Отличия от PHASE 2:
+    - Увеличенная регуляризация (reg_alpha, reg_lambda)
+    - Более консервативные параметры (меньше max_depth, больше min_child_weight)
+    - Раннее прекращение обучения (early_stopping_rounds)
+    """
+    import optuna
+    
+    def objective(trial):
+        params = {
+            "n_estimators": trial.suggest_int("n_estimators", 100, 300),
+            "max_depth": trial.suggest_int("max_depth", 3, 7),  # Меньше чем в PHASE 2
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
+            "subsample": trial.suggest_float("subsample", 0.6, 0.9),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 0.9),
+            "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),  # Новый параметр
+            "reg_alpha": trial.suggest_float("reg_alpha", 0.0, 10.0),  # L1 регуляризация
+            "reg_lambda": trial.suggest_float("reg_lambda", 1.0, 10.0),  # L2 регуляризация
+            "random_state": 42,
+            "n_jobs": -1,
+            "eval_metric": "logloss"
+        }
+        
+        model = XGBClassifier(**params)
+        model.fit(X_train, y_train)
+        
+        y_pred_proba = model.predict_proba(X_val)[:, 1]
+        auc = roc_auc_score(y_val, y_pred_proba)
+        
+        return auc
+    
+    study = optuna.create_study(direction="maximize", study_name="xgboost_cv")
+    study.optimize(objective, n_trials=n_trials, timeout=timeout, show_progress_bar=False)
+    
+    return study.best_params
+
+
+def optimize_lightgbm_cv(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    n_trials: int = 30,
+    timeout: int | None = None
+) -> Dict:
+    """
+    Optuna optimization для LightGBM с увеличенной регуляризацией.
+    """
+    import optuna
+    
+    def objective(trial):
+        params = {
+            "n_estimators": trial.suggest_int("n_estimators", 100, 300),
+            "max_depth": trial.suggest_int("max_depth", 3, 7),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
+            "subsample": trial.suggest_float("subsample", 0.6, 0.9),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 0.9),
+            "min_child_samples": trial.suggest_int("min_child_samples", 10, 50),  # Больше чем в PHASE 2
+            "reg_alpha": trial.suggest_float("reg_alpha", 0.0, 10.0),
+            "reg_lambda": trial.suggest_float("reg_lambda", 1.0, 10.0),
+            "random_state": 42,
+            "n_jobs": -1,
+            "verbosity": -1
+        }
+        
+        model = LGBMClassifier(**params)
+        model.fit(X_train, y_train)
+        
+        y_pred_proba = model.predict_proba(X_val)[:, 1]
+        auc = roc_auc_score(y_val, y_pred_proba)
+        
+        return auc
+    
+    study = optuna.create_study(direction="maximize", study_name="lightgbm_cv")
+    study.optimize(objective, n_trials=n_trials, timeout=timeout, show_progress_bar=False)
+    
+    return study.best_params
+
+
+def optimize_catboost_cv(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+    n_trials: int = 30,
+    timeout: int | None = None
+) -> Dict:
+    """
+    Optuna optimization для CatBoost с увеличенной регуляризацией.
+    """
+    import optuna
+    
+    def objective(trial):
+        params = {
+            "iterations": trial.suggest_int("iterations", 100, 300),
+            "depth": trial.suggest_int("depth", 3, 7),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
+            "subsample": trial.suggest_float("subsample", 0.6, 0.9),
+            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1.0, 10.0),  # L2 регуляризация
+            "random_strength": trial.suggest_float("random_strength", 0.0, 2.0),  # Рандомизация
+            "random_state": 42,
+            "verbose": False,
+            "thread_count": -1
+        }
+        
+        model = CatBoostClassifier(**params)
+        model.fit(X_train, y_train)
+        
+        y_pred_proba = model.predict_proba(X_val)[:, 1]
+        auc = roc_auc_score(y_val, y_pred_proba)
+        
+        return auc
+    
+    study = optuna.create_study(direction="maximize", study_name="catboost_cv")
+    study.optimize(objective, n_trials=n_trials, timeout=timeout, show_progress_bar=False)
+    
+    return study.best_params
+
+
+def train_voting_ensemble(
+    base_models: List[Tuple[str, object]],
+    X_train: np.ndarray,
+    y_train: np.ndarray
+) -> object:
+    """
+    Создает VotingClassifier из списка базовых моделей.
+    
+    Args:
+        base_models: Список кортежей (name, model)
+        X_train: Training features
+        y_train: Training labels
+    
+    Returns:
+        VotingClassifier
+    """
+    from sklearn.ensemble import VotingClassifier
+    
+    voting_clf = VotingClassifier(
+        estimators=base_models,
+        voting='soft',
+        n_jobs=-1
+    )
+    
+    voting_clf.fit(X_train, y_train)
+    
+    return voting_clf
+
+
+def train_stacking_ensemble(
+    base_models: List[Tuple[str, object]],
+    X_train: np.ndarray,
+    y_train: np.ndarray
+) -> object:
+    """
+    Создает StackingClassifier из списка базовых моделей.
+    
+    Args:
+        base_models: Список кортежей (name, model)
+        X_train: Training features
+        y_train: Training labels
+    
+    Returns:
+        StackingClassifier
+    """
+    from sklearn.ensemble import StackingClassifier
+    
+    stacking_clf = StackingClassifier(
+        estimators=base_models,
+        final_estimator=LogisticRegression(random_state=42, max_iter=1000),
+        cv=5,  # 5-fold CV для генерации мета-фич
+        n_jobs=-1
+    )
+    
+    stacking_clf.fit(X_train, y_train)
+    
+    return stacking_clf
+
+
+def evaluate_ensemble(
+    model: object,
+    X_test: np.ndarray,
+    y_test: np.ndarray
+) -> Dict:
+    """
+    Оценка модели на тестовых данных.
+    
+    Returns:
+        Dict с метриками (accuracy, roc_auc)
+    """
+    y_pred_proba = model.predict_proba(X_test)[:, 1]
+    y_pred = (y_pred_proba >= 0.5).astype(int)
+    
+    accuracy = accuracy_score(y_test, y_pred)
+    auc = roc_auc_score(y_test, y_pred_proba)
+    
+    return {
+        "accuracy": float(accuracy),
+        "roc_auc": float(auc)
+    }
