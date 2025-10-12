@@ -113,7 +113,7 @@ def get_current_price(db: Session, exchange: str, symbol: str, timeframe: str) -
                 Price.symbol == symbol,
                 Price.timeframe == timeframe
             )
-            .order_by(Price.timestamp.desc())
+            .order_by(Price.ts.desc())
             .first()
         )
         
