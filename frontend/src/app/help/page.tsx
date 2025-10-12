@@ -4,17 +4,14 @@ import Link from 'next/link';
 
 export default function HelpPage() {
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
+    <div className="p-8">
       <div className="max-w-4xl mx-auto">
         <header className="mb-8">
-          <Link href="/" className="text-blue-600 dark:text-blue-400 hover:underline mb-4 inline-block">
-            ← Назад на главную
-          </Link>
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-            📚 Справка: Что Это Такое?
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            ❓ Справка и Объяснения
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Понятное объяснение всех сервисов MyAssistent
+          <p className="text-gray-600 dark:text-gray-400">
+            Простое объяснение: что делает система и как ей пользоваться
           </p>
         </header>
 

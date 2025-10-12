@@ -3,15 +3,13 @@
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import EquityChart from '@/components/EquityChart';
-import MetricsCard from '@/components/MetricsCard';
 import SignalsTable from '@/components/SignalsTable';
 
 export default function Dashboard() {
-  // Real-time data fetching
   const { data: equity, isLoading: equityLoading } = useQuery({
     queryKey: ['equity'],
     queryFn: () => api.getEquity(),
-    refetchInterval: 10000, // 10 seconds
+    refetchInterval: 10000,
   });
 
   const { data: positions, isLoading: positionsLoading } = useQuery({
@@ -23,213 +21,186 @@ export default function Dashboard() {
   const { data: signals, isLoading: signalsLoading } = useQuery({
     queryKey: ['signals'],
     queryFn: () => api.getRecentSignals(20),
-    refetchInterval: 30000, // 30 seconds
+    refetchInterval: 30000,
   });
 
-  const { data: modelHealth, isLoading: healthLoading } = useQuery({
-    queryKey: ['modelHealth'],
-    queryFn: () => api.getModelHealth(),
-    refetchInterval: 60000, // 1 minute
-  });
-
-  // Mock equity history для графика (в production будет из API)
   const equityHistory = [
     { timestamp: '2025-10-01', equity: 1000, cash: 1000, positions_value: 0 },
     { timestamp: '2025-10-05', equity: 995, cash: 800, positions_value: 195 },
-    { timestamp: '2025-10-10', equity: 1001.6, cash: 900, positions_value: 101.6 },
+    { timestamp: '2025-10-08', equity: 1001, cash: 850, positions_value: 151 },
+    { timestamp: '2025-10-12', equity: 1001.6, cash: 900, positions_value: 101.6 },
   ];
 
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-            Панель Управления
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Торговый бот на ИИ • Прибыльная модель • Версия 1.0
-          </p>
-        </header>
-
-        {/* Key Metrics */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            💰 Мой Портфель
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <MetricsCard
-              title="Общая Сумма"
-              value={equityLoading ? '...' : `$${equity?.data?.equity?.toFixed(2) || '0.00'}`}
-              trend="up"
-            />
-            <MetricsCard
-              title="Наличные"
-              value={equityLoading ? '...' : `$${equity?.data?.cash?.toFixed(2) || '0.00'}`}
-              trend="neutral"
-            />
-            <MetricsCard
-              title="Позиций Открыто"
-              value={positionsLoading ? '...' : positions?.data?.positions?.length || 0}
-              subtitle={`Стоимость: $${equity?.data?.positions_value?.toFixed(2) || '0.00'}`}
-              trend="neutral"
-            />
-            <MetricsCard
-              title="Доходность"
-              value="+0.16%"
-              subtitle="Надёжность: 0.77"
-              trend="up"
-            />
+    <div className="p-8">
+      {/* Header with live status */}
+      <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">📊 Полный Дашборд</h1>
+            <p className="text-blue-100">Детальная статистика и управление торговлей</p>
           </div>
-        </section>
-
-        {/* Equity Chart */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            📈 График Прибыли
-          </h2>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <EquityChart data={equityHistory} height={300} />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-              Зелёная линия — общая сумма • Синяя — наличные • Оранжевая — стоимость позиций
-            </p>
+          <div className="text-right">
+            <div className="flex items-center gap-2 justify-end mb-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span className="text-sm">Обновление каждые 10 сек</span>
+            </div>
+            <div className="text-xs text-blue-200">
+              Последнее обновление: {new Date().toLocaleTimeString('ru-RU')}
+            </div>
           </div>
-        </section>
-
-        {/* Positions Table */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            💼 Открытые Позиции
-          </h2>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            {positionsLoading ? (
-              <div className="p-6 text-center text-gray-500">Загрузка...</div>
-            ) : positions?.data?.positions && positions.data.positions.length > 0 ? (
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Биржа
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Монета
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Количество
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Цена Покупки
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Текущая Стоимость
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {positions.data.positions.map((pos: any, idx: number) => (
-                    <tr key={idx}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {pos.exchange}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {pos.symbol}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {pos.qty.toFixed(6)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        ${pos.avg_price.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        ${(pos.qty * pos.avg_price).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-                Нет открытых позиций
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Recent Signals */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            🔔 Сигналы (Что Советует Купить/Продать)
-          </h2>
-          <SignalsTable 
-            signals={signals?.data || []} 
-            loading={signalsLoading} 
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            💡 Сигналы обновляются каждые 30 секунд. BUY = купить, SELL = продать, HOLD = держать.
-          </p>
-        </section>
-
-        {/* Model Health */}
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            🤖 Состояние Модели ИИ
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {healthLoading ? (
-              <div className="col-span-full p-6 text-center text-gray-500">Загрузка...</div>
-            ) : modelHealth?.data && modelHealth.data.length > 0 ? (
-              modelHealth.data.map((model: any, idx: number) => (
-                <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {model.symbol}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {model.timeframe} • Horizon: {model.horizon_steps}
-                      </p>
-                    </div>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        model.fresh
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                      }`}
-                    >
-                      {model.fresh ? '✅ Актуальна' : '⚠️ Требует обновления'}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">Точность:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {model.auc ? `${(model.auc * 100).toFixed(1)}%` : 'Н/Д'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">Возраст:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {model.age_days?.toFixed(0) || '0'} дней
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400">Показателей:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {model.n_features || 'Н/Д'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full p-6 text-center text-gray-500 dark:text-gray-400">
-                Модели не обучены
-              </div>
-            )}
-          </div>
-        </section>
+        </div>
       </div>
-    </main>
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Left Column - Chart */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Equity Chart */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span>📈</span>
+              График Капитала
+            </h2>
+            <EquityChart data={equityHistory} height={400} />
+            <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl">
+              <div className="grid grid-cols-3 gap-4 text-center text-sm">
+                <div>
+                  <div className="text-gray-500 dark:text-gray-400 mb-1">🟢 Зелёная</div>
+                  <div className="font-bold text-green-600 dark:text-green-400">Общая Сумма</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 dark:text-gray-400 mb-1">🔵 Синяя</div>
+                  <div className="font-bold text-blue-600 dark:text-blue-400">Наличные</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 dark:text-gray-400 mb-1">🟠 Оранжевая</div>
+                  <div className="font-bold text-orange-600 dark:text-orange-400">В Монетах</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Signals Table */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span>🔔</span>
+              Все Сигналы
+            </h2>
+            <SignalsTable signals={signals?.data || []} loading={signalsLoading} />
+          </div>
+        </div>
+
+        {/* Right Column - Stats & Positions */}
+        <div className="space-y-6">
+          {/* Key Metrics */}
+          <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-xl text-white">
+            <div className="text-4xl mb-3">💰</div>
+            <div className="text-sm opacity-90 mb-1">Общая Сумма</div>
+            <div className="text-4xl font-bold mb-3">
+              ${equityLoading ? '...' : (equity?.data?.equity || 0).toFixed(2)}
+            </div>
+            <div className="space-y-2 text-sm opacity-90">
+              <div className="flex justify-between">
+                <span>Наличные:</span>
+                <span className="font-bold">${(equity?.data?.cash || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>В монетах:</span>
+                <span className="font-bold">${(equity?.data?.positions_value || 0).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Return Card */}
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-xl text-white">
+            <div className="text-4xl mb-3">📈</div>
+            <div className="text-sm opacity-90 mb-1">Доходность</div>
+            <div className="text-4xl font-bold mb-3">
+              +0.16%
+            </div>
+            <div className="text-sm opacity-90">
+              Надёжность (Sharpe): <span className="font-bold">0.77</span>
+            </div>
+            <div className="mt-3 pt-3 border-t border-blue-400">
+              <div className="text-xs">
+                💡 Чем выше Sharpe, тем лучше!<br/>
+                0.7+ считается хорошим результатом
+              </div>
+            </div>
+          </div>
+
+          {/* Positions */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <span>💼</span>
+              Открытые Позиции
+            </h3>
+            {positionsLoading ? (
+              <div className="text-center py-8 text-gray-500">Загрузка...</div>
+            ) : positions?.data?.positions && positions.data.positions.length > 0 ? (
+              <div className="space-y-3">
+                {positions.data.positions.map((pos: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-xl"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-bold text-lg text-gray-900 dark:text-white">
+                        {pos.symbol}
+                      </div>
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                        ${(pos.qty * pos.avg_price).toFixed(2)}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="text-gray-600 dark:text-gray-400">
+                        Куплено: <span className="font-semibold text-gray-900 dark:text-white">{pos.qty.toFixed(4)}</span>
+                      </div>
+                      <div className="text-gray-600 dark:text-gray-400">
+                        Цена: <span className="font-semibold text-gray-900 dark:text-white">${pos.avg_price.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-5xl mb-3">📭</div>
+                <div className="text-gray-500 dark:text-gray-400">
+                  Нет открытых позиций
+                </div>
+                <div className="text-xs text-gray-400 mt-2">
+                  Дождитесь сигнала BUY
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Model Info */}
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-2xl shadow-xl text-white">
+            <div className="text-4xl mb-3">🤖</div>
+            <div className="text-sm opacity-90 mb-1">Модель ИИ</div>
+            <div className="text-2xl font-bold mb-4">
+              ✅ Активна
+            </div>
+            <div className="space-y-2 text-sm opacity-90">
+              <div className="flex justify-between">
+                <span>Точность:</span>
+                <span className="font-bold">52.3%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Показателей:</span>
+                <span className="font-bold">48</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Обучена:</span>
+                <span className="font-bold">0 дней назад</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
-

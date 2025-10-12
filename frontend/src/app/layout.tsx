@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Providers from './providers';
+import Sidebar from '@/components/Sidebar';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ['latin', 'cyrillic'] });
 
 export const metadata: Metadata = {
-  title: 'MyAssistent Dashboard',
-  description: 'Autonomous trading bot with ML for Bybit',
+  title: 'MyAssistent — Торговый Бот на ИИ',
+  description: 'Прибыльная автоматическая торговля криптовалютой с искусственным интеллектом',
 };
 
 export default function RootLayout({
@@ -17,9 +17,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+            <Sidebar />
+            <main className="flex-1 ml-64">
+              {children}
+            </main>
+          </div>
+        </Providers>
       </body>
     </html>
   );
