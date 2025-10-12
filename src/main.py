@@ -41,6 +41,7 @@ from src.routers import (
     backtest,
     rl,
     mlflow_registry,
+    validation,
 )
 
 # Импорты зависимостей и утилит
@@ -178,6 +179,7 @@ app.include_router(debug.router)
 app.include_router(backtest.router)
 app.include_router(rl.router)
 app.include_router(mlflow_registry.router)
+app.include_router(validation.router)
 
 
 # ============== Корневые Эндпоинты ==============
