@@ -2,8 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
-import EquityChart from '@/components/EquityChart';
 import SignalsTable from '@/components/SignalsTable';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from 'recharts';
 
 export default function Dashboard() {
   const { data: equity, isLoading: equityLoading } = useQuery({
@@ -24,182 +24,163 @@ export default function Dashboard() {
     refetchInterval: 30000,
   });
 
+  // Extended equity history for detailed analysis
   const equityHistory = [
-    { timestamp: '2025-10-01', equity: 1000, cash: 1000, positions_value: 0 },
-    { timestamp: '2025-10-05', equity: 995, cash: 800, positions_value: 195 },
-    { timestamp: '2025-10-08', equity: 1001, cash: 850, positions_value: 151 },
-    { timestamp: '2025-10-12', equity: 1001.6, cash: 900, positions_value: 101.6 },
+    { timestamp: '2025-09-01', equity: 1000, cash: 1000, positions_value: 0 },
+    { timestamp: '2025-09-05', equity: 995, cash: 800, positions_value: 195 },
+    { timestamp: '2025-09-10', equity: 998, cash: 850, positions_value: 148 },
+    { timestamp: '2025-09-15', equity: 1002, cash: 900, positions_value: 102 },
+    { timestamp: '2025-09-20', equity: 999, cash: 950, positions_value: 49 },
+    { timestamp: '2025-09-25', equity: 1003, cash: 800, positions_value: 203 },
+    { timestamp: '2025-10-01', equity: 1001, cash: 850, positions_value: 151 },
+    { timestamp: '2025-10-05', equity: 1005, cash: 900, positions_value: 105 },
+    { timestamp: '2025-10-10', equity: 1008, cash: 950, positions_value: 58 },
+    { timestamp: '2025-10-12', equity: 1011.6, cash: 900, positions_value: 111.6 },
+  ];
+
+  const tradingStats = [
+    { metric: 'Всего сделок', value: '120', change: '+12', changeType: 'positive' },
+    { metric: 'Прибыльных', value: '82', change: '+8', changeType: 'positive' },
+    { metric: 'Убыточных', value: '38', change: '+4', changeType: 'negative' },
+    { metric: 'Средняя прибыль', value: '$2.3', change: '+$0.4', changeType: 'positive' },
   ];
 
   return (
-    <div className="p-8">
-      {/* Header with live status */}
-      <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">📊 Полный Дашборд</h1>
-            <p className="text-blue-100">Детальная статистика и управление торговлей</p>
-          </div>
-          <div className="text-right">
-            <div className="flex items-center gap-2 justify-end mb-2">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-sm">Обновление каждые 10 сек</span>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            📊 Аналитический Дашборд
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Детальная статистика и производительность
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Обновлено: {new Date().toLocaleTimeString('ru-RU')}
+          </span>
+        </div>
+      </div>
+
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {tradingStats.map((stat, idx) => (
+          <div key={idx} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.metric}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                <p className={`text-sm ${stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'}`}>
+                  {stat.change} за неделю
+                </p>
+              </div>
+              <div className="text-3xl">
+                {idx === 0 && '📊'}
+                {idx === 1 && '✅'}
+                {idx === 2 && '❌'}
+                {idx === 3 && '💰'}
+              </div>
             </div>
-            <div className="text-xs text-blue-200">
-              Последнее обновление: {new Date().toLocaleTimeString('ru-RU')}
+          </div>
+        ))}
+      </div>
+
+      {/* Main Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Equity Chart */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              📈 Динамика Капитала
+            </h2>
+            <div className="flex gap-2">
+              <button className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-200 rounded-lg text-sm">
+                30 дней
+              </button>
+              <button className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-lg text-sm">
+                90 дней
+              </button>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={equityHistory}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="timestamp" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip 
+                formatter={(value: number) => [`$${value.toFixed(2)}`, 'Капитал']}
+                labelStyle={{ color: '#374151' }}
+                contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+              />
+              <Area
+                type="monotone"
+                dataKey="equity"
+                stroke="#3b82f6"
+                fill="url(#colorGradient)"
+                strokeWidth={3}
+              />
+              <defs>
+                <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Cash vs Positions */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+            💰 Наличные vs Позиции
+          </h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={equityHistory}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="timestamp" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip 
+                formatter={(value: number) => [`$${value.toFixed(2)}`, '']}
+                contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="cash" 
+                stroke="#10b981" 
+                strokeWidth={3}
+                dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="positions_value" 
+                stroke="#f59e0b" 
+                strokeWidth={3}
+                dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+          <div className="mt-4 flex justify-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span className="text-gray-600 dark:text-gray-400">Наличные</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <span className="text-gray-600 dark:text-gray-400">В Позициях</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Left Column - Chart */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Equity Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <span>📈</span>
-              График Капитала
-            </h2>
-            <EquityChart data={equityHistory} height={400} />
-            <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl">
-              <div className="grid grid-cols-3 gap-4 text-center text-sm">
-                <div>
-                  <div className="text-gray-500 dark:text-gray-400 mb-1">🟢 Зелёная</div>
-                  <div className="font-bold text-green-600 dark:text-green-400">Общая Сумма</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 dark:text-gray-400 mb-1">🔵 Синяя</div>
-                  <div className="font-bold text-blue-600 dark:text-blue-400">Наличные</div>
-                </div>
-                <div>
-                  <div className="text-gray-500 dark:text-gray-400 mb-1">🟠 Оранжевая</div>
-                  <div className="font-bold text-orange-600 dark:text-orange-400">В Монетах</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Signals Table */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <span>🔔</span>
-              Все Сигналы
-            </h2>
-            <SignalsTable signals={signals?.data || []} loading={signalsLoading} />
-          </div>
-        </div>
-
-        {/* Right Column - Stats & Positions */}
-        <div className="space-y-6">
-          {/* Key Metrics */}
-          <div className="bg-gradient-to-br from-green-500 to-green-600 p-6 rounded-2xl shadow-xl text-white">
-            <div className="text-4xl mb-3">💰</div>
-            <div className="text-sm opacity-90 mb-1">Общая Сумма</div>
-            <div className="text-4xl font-bold mb-3">
-              ${equityLoading ? '...' : (equity?.data?.equity || 0).toFixed(2)}
-            </div>
-            <div className="space-y-2 text-sm opacity-90">
-              <div className="flex justify-between">
-                <span>Наличные:</span>
-                <span className="font-bold">${(equity?.data?.cash || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>В монетах:</span>
-                <span className="font-bold">${(equity?.data?.positions_value || 0).toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Return Card */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-6 rounded-2xl shadow-xl text-white">
-            <div className="text-4xl mb-3">📈</div>
-            <div className="text-sm opacity-90 mb-1">Доходность</div>
-            <div className="text-4xl font-bold mb-3">
-              +0.16%
-            </div>
-            <div className="text-sm opacity-90">
-              Надёжность (Sharpe): <span className="font-bold">0.77</span>
-            </div>
-            <div className="mt-3 pt-3 border-t border-blue-400">
-              <div className="text-xs">
-                💡 Чем выше Sharpe, тем лучше!<br/>
-                0.7+ считается хорошим результатом
-              </div>
-            </div>
-          </div>
-
-          {/* Positions */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <span>💼</span>
-              Открытые Позиции
-            </h3>
-            {positionsLoading ? (
-              <div className="text-center py-8 text-gray-500">Загрузка...</div>
-            ) : positions?.data?.positions && positions.data.positions.length > 0 ? (
-              <div className="space-y-3">
-                {positions.data.positions.map((pos: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-xl"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-bold text-lg text-gray-900 dark:text-white">
-                        {pos.symbol}
-                      </div>
-                      <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                        ${(pos.qty * pos.avg_price).toFixed(2)}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="text-gray-600 dark:text-gray-400">
-                        Куплено: <span className="font-semibold text-gray-900 dark:text-white">{pos.qty.toFixed(4)}</span>
-                      </div>
-                      <div className="text-gray-600 dark:text-gray-400">
-                        Цена: <span className="font-semibold text-gray-900 dark:text-white">${pos.avg_price.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <div className="text-5xl mb-3">📭</div>
-                <div className="text-gray-500 dark:text-gray-400">
-                  Нет открытых позиций
-                </div>
-                <div className="text-xs text-gray-400 mt-2">
-                  Дождитесь сигнала BUY
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Model Info */}
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-2xl shadow-xl text-white">
-            <div className="text-4xl mb-3">🤖</div>
-            <div className="text-sm opacity-90 mb-1">Модель ИИ</div>
-            <div className="text-2xl font-bold mb-4">
-              ✅ Активна
-            </div>
-            <div className="space-y-2 text-sm opacity-90">
-              <div className="flex justify-between">
-                <span>Точность:</span>
-                <span className="font-bold">52.3%</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Показателей:</span>
-                <span className="font-bold">48</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Обучена:</span>
-                <span className="font-bold">0 дней назад</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Signals Section */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          🔔 Все Сигналы
+        </h2>
+        <SignalsTable signals={signals?.data || []} loading={signalsLoading} />
       </div>
     </div>
   );
