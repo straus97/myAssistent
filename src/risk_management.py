@@ -361,7 +361,7 @@ def run_risk_checks(db: Session) -> Dict:
         if not exposure_ok:
             results["warnings"].append(exposure_warning)
             if config.get("max_exposure", {}).get("notify", True):
-                send_telegram_message(f"[RISK] WARNING: {exposure_warning}")
+                send_telegram(f"[RISK] WARNING: {exposure_warning}")
         
         # Загружаем trailing stops
         trailing_stops = load_trailing_stops()
