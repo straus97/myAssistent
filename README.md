@@ -314,8 +314,8 @@ test: добавлены тесты для modeling.py
 
 ## 💬 Контакты
 
-- **GitHub:** https://github.com/yourusername/myAssistent
-- **Issues:** https://github.com/yourusername/myAssistent/issues
+- **GitHub:** https://github.com/straus97/myAssistent
+- **Issues:** https://github.com/straus97/myAssistent/issues
 
 ---
 
