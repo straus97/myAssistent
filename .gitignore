@@ -54,6 +54,8 @@ MANIFEST
 *.csv
 *.xlsx
 !artifacts/dataset_preview.csv
+catboost_info/  # CatBoost training logs
+mlruns/  # MLflow local runs
 
 # IDE
 .vscode/

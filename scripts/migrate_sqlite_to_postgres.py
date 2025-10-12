@@ -103,7 +103,7 @@ def migrate_table(sqlite_conn, postgres_conn, table_name: str, batch_size: int =
             offset += batch_size
             pbar.update(len(rows))
     
-    logger.info(f"  ✅ Мигрировано: {migrated:,} строк")
+    logger.info(f"  [OK] Мигрировано: {migrated:,} строк")
 
 
 def migrate_all():
@@ -186,20 +186,20 @@ def migrate_all():
         sqlite_conn.close()
         postgres_conn.close()
     
-    logger.info("\n✅ Готово! Теперь обновите .env:")
+    logger.info("\n[SUCCESS] Готово! Теперь обновите .env:")
     logger.info(f"   DATABASE_URL={POSTGRES_URL}")
 
 
 if __name__ == "__main__":
     # Подтверждение от пользователя
-    print("⚠️  ВНИМАНИЕ: Эта операция мигрирует данные из SQLite в PostgreSQL")
+    print("[WARNING] ВНИМАНИЕ: Эта операция мигрирует данные из SQLite в PostgreSQL")
     print(f"   SQLite: {SQLITE_DB}")
     print(f"   PostgreSQL: {POSTGRES_URL}")
     print()
     
     response = input("Продолжить? (yes/no): ").strip().lower()
     if response != "yes":
-        print("❌ Миграция отменена")
+        print("[CANCELLED] Миграция отменена")
         sys.exit(0)
     
     migrate_all()

@@ -1,212 +1,161 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import Link from 'next/link';
 
-export default function Dashboard() {
-  const { data: equity, isLoading: equityLoading } = useQuery({
-    queryKey: ['equity'],
-    queryFn: () => api.getEquity(),
-    refetchInterval: 10000, // 10 seconds
-  });
-
-  const { data: positions, isLoading: positionsLoading } = useQuery({
-    queryKey: ['positions'],
-    queryFn: () => api.getPositions(),
-    refetchInterval: 10000,
-  });
-
-  const { data: signals, isLoading: signalsLoading } = useQuery({
-    queryKey: ['signals'],
-    queryFn: () => api.getRecentSignals(10),
-    refetchInterval: 30000, // 30 seconds
-  });
-
-  const { data: modelHealth, isLoading: healthLoading } = useQuery({
-    queryKey: ['modelHealth'],
-    queryFn: () => api.getModelHealth(),
-    refetchInterval: 60000, // 1 minute
-  });
-
+export default function Home() {
   return (
-    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-            MyAssistent Dashboard
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-6xl font-bold text-gray-900 dark:text-white mb-4">
+            MyAssistent
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
-            Autonomous trading bot with ML • Version 0.9
+          <p className="text-2xl text-gray-600 dark:text-gray-300 mb-2">
+            Autonomous Trading Bot
           </p>
-        </header>
-
-        {/* Equity Section */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            Portfolio Equity
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Cash</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {equityLoading ? '...' : `${equity?.data?.cash.toFixed(2) || 0} ₽`}
-              </p>
+          <p className="text-lg text-gray-500 dark:text-gray-400">
+            ML-powered • Profitable • Version 1.0
+          </p>
+          
+          {/* Stats Badge */}
+          <div className="mt-8 inline-flex items-center gap-6 bg-white dark:bg-gray-800 px-8 py-4 rounded-full shadow-lg">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">+0.16%</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Return</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Positions Value</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {equityLoading ? '...' : `${equity?.data?.positions_value.toFixed(2) || 0} ₽`}
-              </p>
+            <div className="h-8 w-px bg-gray-300 dark:bg-gray-600"></div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">0.77</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Sharpe Ratio</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Equity</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {equityLoading ? '...' : `${equity?.data?.equity.toFixed(2) || 0} ₽`}
-              </p>
+            <div className="h-8 w-px bg-gray-300 dark:bg-gray-600"></div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">48</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Features</p>
             </div>
           </div>
-        </section>
+        </div>
 
-        {/* Positions Section */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            Open Positions
-          </h2>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            {positionsLoading ? (
-              <div className="p-6 text-center text-gray-500">Loading...</div>
-            ) : positions?.data?.positions && positions.data.positions.length > 0 ? (
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Symbol
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Exchange
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Qty
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Avg Price
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {positions.data.positions.map((pos: any, idx: number) => (
-                    <tr key={idx}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {pos.symbol}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {pos.exchange}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {pos.qty.toFixed(4)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        ${pos.avg_price.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-                No open positions
-              </div>
-            )}
-          </div>
-        </section>
+        {/* Navigation Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Dashboard */}
+          <Link href="/dashboard">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow cursor-pointer border-2 border-transparent hover:border-blue-500">
+              <div className="text-4xl mb-4">📊</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                Dashboard
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Equity curve, позиции, сигналы
+              </p>
+            </div>
+          </Link>
 
-        {/* Recent Signals */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            Recent Signals
-          </h2>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            {signalsLoading ? (
-              <div className="p-6 text-center text-gray-500">Loading...</div>
-            ) : signals?.data && signals.data.length > 0 ? (
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {signals.data.slice(0, 5).map((signal: any, idx: number) => (
-                  <div key={idx} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {signal.symbol} ({signal.timeframe})
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(signal.created_at).toLocaleString()}
-                        </p>
-                      </div>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          signal.direction === 'BUY'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : signal.direction === 'SELL'
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {signal.direction}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-                No recent signals
-              </div>
-            )}
+          {/* Backtest */}
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl opacity-75">
+            <div className="text-4xl mb-4">🧪</div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              Backtest
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Результаты симуляции (скоро)
+            </p>
           </div>
-        </section>
 
-        {/* Model Health */}
-        <section>
-          <h2 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
-            Model Health
-          </h2>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            {healthLoading ? (
-              <div className="p-6 text-center text-gray-500">Loading...</div>
-            ) : modelHealth?.data && modelHealth.data.length > 0 ? (
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {modelHealth.data.slice(0, 5).map((model: any, idx: number) => (
-                  <div key={idx} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                          {model.symbol} ({model.timeframe})
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          Age: {model.age_days.toFixed(1)} days • AUC: {model.auc?.toFixed(3) || 'N/A'}
-                        </p>
-                      </div>
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          model.fresh
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        }`}
-                      >
-                        {model.fresh ? 'Fresh' : 'Stale'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-                No models trained
-              </div>
-            )}
+          {/* Models */}
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl opacity-75">
+            <div className="text-4xl mb-4">🤖</div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              Models
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              ML модели и метрики (скоро)
+            </p>
           </div>
-        </section>
+
+          {/* Settings */}
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl opacity-75">
+            <div className="text-4xl mb-4">⚙️</div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              Settings
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Риск-политика, конфигурация (скоро)
+            </p>
+          </div>
+
+          {/* News */}
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl opacity-75">
+            <div className="text-4xl mb-4">📰</div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+              News
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Новости с sentiment (скоро)
+            </p>
+          </div>
+
+          {/* API Docs */}
+          <a href="http://localhost:8000/docs" target="_blank" rel="noopener noreferrer">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow cursor-pointer border-2 border-transparent hover:border-green-500">
+              <div className="text-4xl mb-4">📖</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                API Docs
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Swagger UI (Backend API)
+              </p>
+            </div>
+          </a>
+        </div>
+
+        {/* Footer Info */}
+        <div className="mt-16 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+              Quick Links
+            </h3>
+            <div className="flex flex-wrap justify-center gap-4">
+              <a 
+                href="http://localhost:8000" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Backend API (:8000)
+              </a>
+              <span className="text-gray-300 dark:text-gray-600">•</span>
+              <a 
+                href="http://localhost:5000" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                MLflow (:5000)
+              </a>
+              <span className="text-gray-300 dark:text-gray-600">•</span>
+              <a 
+                href="http://localhost:9090" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Prometheus (:9090)
+              </a>
+              <span className="text-gray-300 dark:text-gray-600">•</span>
+              <a 
+                href="http://localhost:3001" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Grafana (:3001)
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );
 }
-

@@ -70,8 +70,18 @@ set LOG_LEVEL=DEBUG
 
 if not exist .venv\_deps.ok (
   echo [*] Устанавливаю Python зависимости...
-  %PY% -m pip install --upgrade pip && ^
-  %PY% -m pip install -r requirements.txt || (echo [!] Ошибка установки зависимостей & pause & exit /b 1)
+  %PY% -m pip install --upgrade pip
+  if errorlevel 1 (
+    echo [!] Ошибка обновления pip
+    pause
+    exit /b 1
+  )
+  %PY% -m pip install -r requirements.txt
+  if errorlevel 1 (
+    echo [!] Ошибка установки зависимостей
+    pause
+    exit /b 1
+  )
   echo ok > .venv\_deps.ok
 )
 
