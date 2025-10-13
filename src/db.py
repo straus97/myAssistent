@@ -3,6 +3,7 @@ from sqlalchemy import (
     create_engine,
     Column,
     Integer,
+    BigInteger,
     String,
     DateTime,
     Text,
@@ -92,7 +93,7 @@ class Price(Base):
     exchange = Column(String, nullable=False)
     symbol = Column(String, nullable=False)
     timeframe = Column(String, nullable=False)
-    ts = Column(Integer, nullable=False, index=True)  # millis since epoch
+    ts = Column(BigInteger, nullable=False, index=True)  # millis since epoch - BIGINT для PostgreSQL!
     open = Column(Float, nullable=False)
     high = Column(Float, nullable=False)
     low = Column(Float, nullable=False)
