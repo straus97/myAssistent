@@ -90,7 +90,7 @@ except Exception:
 # ============== FastAPI App ==============
 
 app = _FastAPI(
-    title="MyAssistent API 222",
+    title="MyAssistent API",
     version="0.9",
     docs_url="/docs" if ENABLE_DOCS else None,
     redoc_url="/redoc" if ENABLE_DOCS else None,
