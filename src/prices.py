@@ -56,13 +56,19 @@ def _insert_prices(
         if batch >= 500:
             try:
                 db.commit()
-            except Exception:
+            except Exception as e:
+                print(f"[ERROR] Failed to commit batch: {e}")
+                import traceback
+                traceback.print_exc()
                 db.rollback()
             batch = 0
     if batch:
         try:
             db.commit()
-        except Exception:
+        except Exception as e:
+            print(f"[ERROR] Failed to commit final batch: {e}")
+            import traceback
+            traceback.print_exc()
             db.rollback()
     return added
 
