@@ -246,10 +246,15 @@ def generate_signals_for_symbols(
                 # Получаем последнюю строку
                 last_row = df.iloc[-1]
                 
-                # Определяем feature columns
-                feature_cols = [col for col in df.columns if col not in [
-                    'future_ret', 'y', 'timestamp'
-                ]]
+                # ВАЖНО: Используем feature_cols из модели, а НЕ все колонки датасета!
+                # Модель обучена на конкретном наборе из 84 фич
+                feature_cols = feature_cols_from_model
+                
+                # Проверяем наличие всех нужных фич
+                missing_cols = [col for col in feature_cols if col not in df.columns]
+                if missing_cols:
+                    logger.warning(f"[MONITOR] Missing features for {symbol}: {missing_cols[:5]}")
+                    continue
                 
                 # Предсказание
                 X = df[feature_cols].iloc[[-1]].fillna(0)
