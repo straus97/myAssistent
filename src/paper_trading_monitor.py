@@ -293,7 +293,7 @@ def execute_signals_if_enabled(signals: List[Dict], auto_execute: bool) -> None:
     if not auto_execute or not signals:
         return
     
-    from .trade import paper_buy_auto
+    from .trade import paper_open_buy_auto
     
     for signal in signals:
         try:
@@ -301,14 +301,13 @@ def execute_signals_if_enabled(signals: List[Dict], auto_execute: bool) -> None:
             
             db = SessionLocal()
             try:
-                result = paper_buy_auto(
-                    db=db,
+                result = paper_open_buy_auto(
                     exchange=signal["exchange"],
                     symbol=signal["symbol"],
                     timeframe=signal["timeframe"],
                     price=signal["price"],
-                    probability=signal["probability"],
-                    vol_state=signal.get("vol_state")
+                    ts_iso=signal.get("timestamp", datetime.utcnow().isoformat()),
+                    vol_state=signal.get("vol_state", "normal")
                 )
                 
                 if result.get("status") == "ok":
