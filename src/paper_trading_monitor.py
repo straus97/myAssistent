@@ -235,8 +235,9 @@ def generate_signals_for_symbols(
         
         for symbol in symbols:
             try:
-                # Строим датасет
-                df, feature_list = build_dataset(db, exchange, symbol, timeframe)
+                # Строим датасет (horizon_steps ОБЯЗАТЕЛЬНО!)
+                horizon_steps = 6  # Такой же как при обучении модели
+                df, feature_list = build_dataset(db, exchange, symbol, timeframe, horizon_steps)
                 
                 if df is None or len(df) < 50:
                     logger.warning(f"[MONITOR] Not enough data for {symbol}")
