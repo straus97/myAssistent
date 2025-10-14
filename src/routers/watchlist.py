@@ -24,6 +24,12 @@ def watchlist_get(_=Depends(require_api_key)):
     return {"pairs": list_watchlist()}
 
 
+@router.get("/list")
+def watchlist_list(_=Depends(require_api_key)):
+    """Получить текущий watchlist (алиас для совместимости)"""
+    return {"pairs": list_watchlist()}
+
+
 class WatchlistSet(BaseModel):
     """Запрос на установку watchlist"""
 
