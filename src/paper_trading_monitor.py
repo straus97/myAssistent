@@ -55,6 +55,7 @@ def load_monitor_state() -> Dict:
         "exchange": "bybit",
         "timeframe": "1h",
         "auto_execute": False,  # Автоматическое исполнение сигналов
+        "use_ml_model": True,   # Использовать ML модель (True) или EMA Crossover (False)
         "notifications": True,
         "stats": {
             "total_updates": 0,
@@ -389,11 +390,18 @@ def run_monitor_update() -> Dict:
         if not prices_updated:
             results["errors"].append("Failed to update prices")
         
-        # 2. Генерируем сигналы (EMA Crossover вместо ML!)
+        # 2. Генерируем сигналы (ML модель!)
         db = SessionLocal()
         try:
-            logger.info("[MONITOR] Generating EMA Crossover signals...")
-            signals = generate_ema_signals_for_symbols(symbols, exchange, timeframe, db)
+            use_ml = state.get("use_ml_model", True)  # По умолчанию используем ML
+            
+            if use_ml:
+                logger.info("[MONITOR] Generating ML model signals...")
+                signals = generate_signals_for_symbols(symbols, exchange, timeframe, db)
+            else:
+                logger.info("[MONITOR] Generating EMA Crossover signals...")
+                signals = generate_ema_signals_for_symbols(symbols, exchange, timeframe, db)
+            
             results["signals"] = signals
             
             # 3. Исполняем сигналы (если включено)

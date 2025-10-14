@@ -30,6 +30,7 @@ class MonitorConfig(BaseModel):
     exchange: str = Field("bybit", description="Биржа")
     timeframe: str = Field("1h", description="Таймфрейм")
     auto_execute: bool = Field(False, description="Автоматическое исполнение сигналов")
+    use_ml_model: bool = Field(True, description="Использовать ML модель (True) или EMA Crossover (False)")
     notifications: bool = Field(True, description="Отправлять уведомления")
 
 
@@ -93,6 +94,7 @@ async def update_config(config: MonitorConfig, _=Depends(require_api_key)):
         state["exchange"] = config.exchange
         state["timeframe"] = config.timeframe
         state["auto_execute"] = config.auto_execute
+        state["use_ml_model"] = config.use_ml_model
         state["notifications"] = config.notifications
         
         save_monitor_state(state)
