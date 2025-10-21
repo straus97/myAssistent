@@ -16,3 +16,5 @@ Write-Host "Файлы скопированы! Теперь подключите
 Write-Host "ssh root@185.73.215.38" -ForegroundColor Yellow
 Write-Host "Пароль: GK7gz9yGq15T" -ForegroundColor Yellow
 
+
+

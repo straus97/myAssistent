@@ -148,3 +148,5 @@ Prometheus: http://185.73.215.38:9090
 
 Смотри полный гайд: `DEPLOY_VPS_GUIDE.md`
 
+
+

@@ -3,3 +3,5 @@
 
 ALTER TABLE prices ALTER COLUMN ts TYPE BIGINT;
 
+
+
