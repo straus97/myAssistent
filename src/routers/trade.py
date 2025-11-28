@@ -180,7 +180,8 @@ def trade_paper_close(req: PaperCloseRequest, db: Session = Depends(get_db), _=D
     if not latest_price:
         return err("price.not_found", {"symbol": req.symbol}, 404)
     
-    # Закрываем позицию
+    # Закрываем позицию (БЕЗ db параметра!)
+    from src.utils import _now_utc
     result = paper_close_pair(
         exchange=req.exchange,
         symbol=req.symbol,
