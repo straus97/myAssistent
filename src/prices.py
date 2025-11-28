@@ -34,60 +34,49 @@ def _ms(ts: float | int) -> int:
 def _insert_prices(
     db: Session, exchange: str, symbol: str, timeframe: str, rows: List[Tuple[int, float, float, float, float, float]]
 ) -> int:
-    """rows: list of (ts_ms, o, h, l, c, v)"""
+    """
+    rows: list of (ts_ms, o, h, l, c, v)
+    Использует INSERT OR REPLACE для избежания UNIQUE constraint ошибок
+    """
+    from sqlalchemy import text
+    
     added = 0
-    batch = 0
     for ts, o, h, low, c, v in rows:
-        # Проверяем существование перед вставкой (избегаем UNIQUE constraint ошибок)
-        existing = db.query(Price).filter(
-            Price.exchange == exchange,
-            Price.symbol == symbol,
-            Price.timeframe == timeframe,
-            Price.ts == int(ts)
-        ).first()
-        
-        if existing:
-            # Обновляем существующую запись
-            existing.open = float(o)
-            existing.high = float(h)
-            existing.low = float(low)
-            existing.close = float(c)
-            existing.volume = float(v)
-        else:
-            # Добавляем новую запись
-            db.add(
-                Price(
-                    exchange=exchange,
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    ts=int(ts),
-                    open=float(o),
-                    high=float(h),
-                    low=float(low),
-                    close=float(c),
-                    volume=float(v),
-                )
+        # Используем raw SQL с INSERT OR REPLACE (работает быстрее и безопаснее)
+        try:
+            db.execute(
+                text("""
+                    INSERT OR REPLACE INTO prices 
+                    (exchange, symbol, timeframe, ts, open, high, low, close, volume)
+                    VALUES (:exchange, :symbol, :timeframe, :ts, :open, :high, :low, :close, :volume)
+                """),
+                {
+                    "exchange": exchange,
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "ts": int(ts),
+                    "open": float(o),
+                    "high": float(h),
+                    "low": float(low),
+                    "close": float(c),
+                    "volume": float(v)
+                }
             )
             added += 1
-        
-        batch += 1
-        if batch >= 500:
-            try:
-                db.commit()
-            except Exception as e:
-                print(f"[ERROR] Failed to commit batch: {e}")
-                import traceback
-                traceback.print_exc()
-                db.rollback()
-            batch = 0
-    if batch:
-        try:
-            db.commit()
         except Exception as e:
-            print(f"[ERROR] Failed to commit final batch: {e}")
-            import traceback
-            traceback.print_exc()
-            db.rollback()
+            print(f"[ERROR] Failed to insert price: {e}")
+            continue
+    
+    # Один commit в конце
+    try:
+        db.commit()
+    except Exception as e:
+        print(f"[ERROR] Failed to commit prices: {e}")
+        import traceback
+        traceback.print_exc()
+        db.rollback()
+        added = 0
+    
     return added
 
 
