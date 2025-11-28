@@ -363,9 +363,18 @@ def run_monitor_update() -> Dict:
     start_time = datetime.utcnow()
     
     # Загружаем состояние
-    state = load_monitor_state()
+    try:
+        state = load_monitor_state()
+    except Exception as e:
+        logger.error(f"[MONITOR] Failed to load monitor state: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "message": f"Failed to load state: {e}",
+            "errors": [str(e)]
+        }
     
     if not state.get("enabled", False):
+        logger.info("[MONITOR] Monitor is disabled")
         return {
             "status": "disabled",
             "message": "Monitor is disabled"
@@ -382,6 +391,7 @@ def run_monitor_update() -> Dict:
         "errors": []
     }
     
+    db = None
     try:
         # 1. Обновляем цены
         symbols = state.get("symbols", ["BTC/USDT"])
@@ -389,12 +399,16 @@ def run_monitor_update() -> Dict:
         timeframe = state.get("timeframe", "1h")
         
         logger.info(f"[MONITOR] Updating prices for {len(symbols)} symbols...")
-        prices_updated = update_prices_for_symbols(symbols, exchange, timeframe)
+        try:
+            prices_updated = update_prices_for_symbols(symbols, exchange, timeframe)
+            if not prices_updated:
+                results["errors"].append("Failed to update prices")
+                logger.warning("[MONITOR] Price update failed")
+        except Exception as e:
+            logger.error(f"[MONITOR] Error updating prices: {e}", exc_info=True)
+            results["errors"].append(f"Price update error: {e}")
         
-        if not prices_updated:
-            results["errors"].append("Failed to update prices")
-        
-        # 2. Генерируем сигналы (ML модель!)
+        # 2. Генерируем сигналы
         db = SessionLocal()
         try:
             use_ml = state.get("use_ml_model", True)  # По умолчанию используем ML
@@ -407,23 +421,49 @@ def run_monitor_update() -> Dict:
                 signals = generate_ema_signals_for_symbols(symbols, exchange, timeframe, db)
             
             results["signals"] = signals
+            logger.info(f"[MONITOR] Generated {len(signals)} signals")
+        except Exception as e:
+            logger.error(f"[MONITOR] Error generating signals: {e}", exc_info=True)
+            results["errors"].append(f"Signal generation error: {e}")
+            signals = []
             
+        try:
             # 3. Исполняем сигналы (если включено)
-            if state.get("auto_execute", False):
+            if state.get("auto_execute", False) and signals:
+                logger.info(f"[MONITOR] Auto-executing {len(signals)} signals...")
                 execute_signals_if_enabled(signals, True)
+        except Exception as e:
+            logger.error(f"[MONITOR] Error executing signals: {e}", exc_info=True)
+            results["errors"].append(f"Signal execution error: {e}")
             
+        try:
             # 4. Получаем текущий equity
             equity_data = paper_get_equity()
             results["equity"] = equity_data
+            logger.info(f"[MONITOR] Current equity: ${equity_data.get('equity', 0):.2f}")
+        except Exception as e:
+            logger.error(f"[MONITOR] Error getting equity: {e}", exc_info=True)
+            results["errors"].append(f"Equity error: {e}")
+            equity_data = {}
             
+        try:
             # 5. Сохраняем snapshot equity
-            save_equity_snapshot(equity_data)
+            if equity_data:
+                save_equity_snapshot(equity_data)
+        except Exception as e:
+            logger.error(f"[MONITOR] Error saving equity snapshot: {e}", exc_info=True)
+            results["errors"].append(f"Snapshot error: {e}")
             
+        try:
             # 6. Отправляем уведомления
-            if signals and state.get("notifications", True):
+            if signals and state.get("notifications", True) and equity_data:
                 send_notification_if_enabled(signals, equity_data, True)
+        except Exception as e:
+            logger.error(f"[MONITOR] Error sending notification: {e}", exc_info=True)
+            results["errors"].append(f"Notification error: {e}")
             
-            # 7. Обновляем статистику
+        # 7. Обновляем статистику
+        try:
             state["last_update"] = start_time.isoformat()
             state["stats"]["total_updates"] += 1
             state["stats"]["total_signals"] += len(signals)
@@ -432,22 +472,33 @@ def run_monitor_update() -> Dict:
                 state["stats"]["last_signal_time"] = start_time.isoformat()
             
             save_monitor_state(state)
-        
-        finally:
-            db.close()
+            logger.info("[MONITOR] Update cycle completed successfully")
+        except Exception as e:
+            logger.error(f"[MONITOR] Error saving monitor state: {e}", exc_info=True)
+            results["errors"].append(f"State save error: {e}")
         
         duration = (datetime.utcnow() - start_time).total_seconds()
         logger.info(f"[MONITOR] Update cycle completed in {duration:.2f}s")
         results["duration_seconds"] = duration
         
     except Exception as e:
-        logger.error(f"[MONITOR] Error in update cycle: {e}")
+        logger.error(f"[MONITOR] Critical error in update cycle: {e}", exc_info=True)
         results["status"] = "error"
-        results["errors"].append(str(e))
+        results["errors"].append(f"Critical error: {e}")
         
         # Увеличиваем счётчик ошибок
-        state["stats"]["errors"] += 1
-        save_monitor_state(state)
+        try:
+            state = load_monitor_state()
+            state["stats"]["errors"] = state.get("stats", {}).get("errors", 0) + 1
+            save_monitor_state(state)
+        except Exception:
+            pass
+    finally:
+        if db:
+            try:
+                db.close()
+            except Exception:
+                pass
     
     return results
 

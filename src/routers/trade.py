@@ -168,7 +168,26 @@ class PaperCloseRequest(BaseModel):
 def trade_paper_close(req: PaperCloseRequest, db: Session = Depends(get_db), _=Depends(require_api_key)):
     """Закрыть позицию (paper trading)"""
     _trade_guard_enforce("close")
-    result = paper_close_pair(db, req.exchange, req.symbol, req.timeframe)
+    
+    # Получаем текущую цену из БД
+    from src.db import Price
+    latest_price = db.query(Price).filter(
+        Price.exchange == req.exchange,
+        Price.symbol == req.symbol,
+        Price.timeframe == req.timeframe
+    ).order_by(Price.ts.desc()).first()
+    
+    if not latest_price:
+        return err("price.not_found", {"symbol": req.symbol}, 404)
+    
+    # Закрываем позицию
+    result = paper_close_pair(
+        exchange=req.exchange,
+        symbol=req.symbol,
+        timeframe=req.timeframe,
+        price=float(latest_price.close),
+        ts_iso=_now_utc().isoformat()
+    )
     return ok(**result)
 
 
