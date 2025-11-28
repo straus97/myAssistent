@@ -4,7 +4,7 @@
 from __future__ import annotations
 from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ValidationError, ConfigDict
+from pydantic import ValidationError
 
 from src.dependencies import require_api_key
 from src.risk import load_policy, save_policy

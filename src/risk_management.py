@@ -13,11 +13,11 @@ from __future__ import annotations
 import logging
 import json
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
-from .db import SessionLocal, Price
+from .db import Price
 from .trade import paper_get_positions, paper_get_equity, paper_close_pair
 from .notify import send_telegram
 
@@ -371,19 +371,19 @@ def run_risk_checks(db: Session) -> Dict:
                 message = "⚠️ РИСК МЕНЕДЖЕР\n"
                 message += "━━━━━━━━━━━━━━━━━━━━\n\n"
                 message += "🚨 ВЫСОКИЙ EXPOSURE\n\n"
-                message += f"📊 ТЕКУЩИЙ СТАТУС:\n"
+                message += "📊 ТЕКУЩИЙ СТАТУС:\n"
                 message += f"• Exposure: {exposure_pct:.1f}% (лимит: {max_pct:.0f}%)\n"
                 message += f"• Превышение: {exposure_pct - max_pct:.1f}%\n\n"
-                message += f"💰 КАПИТАЛ:\n"
+                message += "💰 КАПИТАЛ:\n"
                 message += f"• Всего: ${equity:,.2f}\n"
                 message += f"• В позициях: ${positions_value:,.2f}\n"
                 message += f"• Свободно: ${equity - positions_value:,.2f}\n\n"
-                message += f"🛡️ ЗАЩИТНЫЕ МЕРЫ:\n"
-                message += f"✓ Новые сделки ЗАБЛОКИРОВАНЫ\n"
-                message += f"✓ Открытые позиции под контролем\n"
-                message += f"✓ SL/TP активны\n\n"
-                message += f"💡 РЕКОМЕНДАЦИЯ:\n"
-                message += f"Дождаться закрытия позиций по Stop Loss / Take Profit"
+                message += "🛡️ ЗАЩИТНЫЕ МЕРЫ:\n"
+                message += "✓ Новые сделки ЗАБЛОКИРОВАНЫ\n"
+                message += "✓ Открытые позиции под контролем\n"
+                message += "✓ SL/TP активны\n\n"
+                message += "💡 РЕКОМЕНДАЦИЯ:\n"
+                message += "Дождаться закрытия позиций по Stop Loss / Take Profit"
                 
                 send_telegram(message)
         
@@ -490,10 +490,10 @@ def run_risk_checks(db: Session) -> Dict:
                         pnl_emoji = "✅" if current_pnl_pct > 0 else "❌"
                         
                         message = f"{action_emoji} {action_name}\n"
-                        message += f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                        message += "━━━━━━━━━━━━━━━━━━━━\n\n"
                         message += f"💰 Пара: {symbol}\n"
                         message += f"{pnl_emoji} P&L: {current_pnl_pct:+.2f}%\n\n"
-                        message += f"📊 ДЕТАЛИ:\n"
+                        message += "📊 ДЕТАЛИ:\n"
                         message += f"• Вход: ${entry_price:.4f}\n"
                         message += f"• Выход: ${current_price:.4f}\n\n"
                         message += f"📝 Причина:\n{reason}\n\n"

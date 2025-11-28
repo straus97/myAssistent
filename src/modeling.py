@@ -376,7 +376,7 @@ def train_xgb_and_save(
             logger.warning(f"[mlflow] Failed to log run: {e}")
             try:
                 mlflow.end_run()
-            except:
+            except Exception:
                 pass
 
     return metrics, str(model_path.resolve())

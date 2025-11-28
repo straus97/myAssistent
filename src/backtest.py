@@ -16,14 +16,13 @@
 from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
-from datetime import datetime, timedelta
+from typing import Dict, List
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import joblib
 from sqlalchemy.orm import Session
 
-from .db import Price
 from .features import build_dataset
 
 logger = logging.getLogger(__name__)
@@ -321,7 +320,7 @@ def calculate_metrics(df: pd.DataFrame) -> Dict:
         
         # Sharpe Ratio (annualized, assuming 365 days)
         # Для крипто используем 365 дней (24/7 торговля)
-        n_periods = len(returns)
+        len(returns)
         if std_ret > 0:
             sharpe = (mean_ret / std_ret) * np.sqrt(365)
         else:

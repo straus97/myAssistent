@@ -4,7 +4,7 @@ API endpoints для Advanced Risk Management
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
-from typing import Dict, Optional
+from typing import Optional
 from sqlalchemy.orm import Session
 
 from ..dependencies import require_api_key, get_db

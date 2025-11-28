@@ -110,15 +110,15 @@ def get_simple_strategy_signal(req: StrategyRequest) -> Dict[str, Any]:
         
         # Отправляем уведомление если BUY
         if signal_str == "BUY":
-            message = f"🟢 СИГНАЛ ПРОСТОЙ СТРАТЕГИИ\n"
-            message += f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            message = "🟢 СИГНАЛ ПРОСТОЙ СТРАТЕГИИ\n"
+            message += "━━━━━━━━━━━━━━━━━━━━\n\n"
             message += f"📊 Стратегия: {strategy_name}\n"
             message += f"💰 Пара: {req.symbol}\n"
             message += f"💵 Цена: ${current_price:.4f}\n"
             message += f"⏰ Время: {timestamp.strftime('%Y-%m-%d %H:%M UTC')}\n\n"
             message += f"🎯 СИГНАЛ: {signal_str}\n\n"
-            message += f"💡 РЕКОМЕНДАЦИЯ:\n"
-            message += f"Рассмотрите покупку на 10-20% капитала"
+            message += "💡 РЕКОМЕНДАЦИЯ:\n"
+            message += "Рассмотрите покупку на 10-20% капитала"
             
             send_telegram(message)
         

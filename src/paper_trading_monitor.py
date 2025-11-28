@@ -14,9 +14,8 @@ import logging
 import json
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List
 import pandas as pd
-import numpy as np
 from sqlalchemy.orm import Session
 
 from .db import SessionLocal, Price
@@ -336,7 +335,7 @@ def send_notification_if_enabled(
         pnl = equity_data.get("total_pnl", 0)
         pnl_pct = (pnl / 10000.0) * 100 if equity > 0 else 0
         
-        message = f"[PAPER TRADING] Новые сигналы!\n\n"
+        message = "[PAPER TRADING] Новые сигналы!\n\n"
         message += f"Equity: ${equity:.2f} ({pnl_pct:+.2f}%)\n"
         message += f"Позиций: {equity_data.get('n_positions', 0)}\n\n"
         

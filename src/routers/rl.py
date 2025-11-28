@@ -15,7 +15,6 @@ from src.dependencies import require_api_key
 from src.rl_agent import RLAgent, load_latest_rl_model
 from src.prices import fetch_ohlcv
 from src.features import build_dataset_for_rl
-import pandas as pd
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -264,7 +263,7 @@ def evaluate_rl_performance(req: PerformanceRequest, _=Depends(require_api_key))
         else:
             model_path = load_latest_rl_model(req.exchange, req.symbol, req.timeframe)
             if not model_path:
-                raise HTTPException(404, f"No trained model found")
+                raise HTTPException(404, "No trained model found")
         
         if not Path(model_path).exists():
             raise HTTPException(404, f"Model not found: {model_path}")

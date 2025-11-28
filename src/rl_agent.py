@@ -4,7 +4,6 @@ RL Agent для динамического sizing позиций (PPO).
 Обучение и inference с использованием Stable-Baselines3.
 """
 
-import os
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -13,7 +12,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 

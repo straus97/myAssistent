@@ -155,7 +155,6 @@ def fetch_ohlcv(
         DataFrame с колонками: timestamp, open, high, low, close, volume
     """
     import pandas as pd
-    from datetime import datetime
     
     exchange = (exchange or "").lower()
     symbol = symbol.upper()

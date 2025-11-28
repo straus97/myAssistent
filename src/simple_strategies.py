@@ -9,7 +9,7 @@
 
 import pandas as pd
 import numpy as np
-from typing import Tuple, Dict, Any
+from typing import Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)
@@ -175,7 +175,6 @@ def backtest_strategy(
     equity_curve = []
     trades_history = []
     
-    entry_price = 0.0
     entry_idx = 0
     
     for i in range(len(prices)):
@@ -187,7 +186,6 @@ def backtest_strategy(
             commission = (commission_bps + slippage_bps) / 10000
             position_size = capital * (1 - commission)
             position = position_size / price
-            entry_price = price
             entry_idx = i
             
             trades_history.append({

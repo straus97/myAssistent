@@ -175,7 +175,7 @@ def maybe_send_signal_notification(
             vol_info = "〰️ Нормальная волатильность"
     except Exception:
         pass
-    vol = _vol_emoji(vol_state)
+    _vol_emoji(vol_state)
 
     # Анализ фильтров для детального вывода
     filter_details = []
@@ -229,18 +229,18 @@ def maybe_send_signal_notification(
     # Формирование сообщения
     msg_lines = [
         f"{emoji} {side}",
-        f"━━━━━━━━━━━━━━━━━━━━",
+        "━━━━━━━━━━━━━━━━━━━━",
         f"🏦 Биржа: {ex}",
         f"💰 Пара: {symbol}",
         f"⏰ Таймфрейм: {timeframe}",
         f"💵 Цена: {price_s}",
         f"🕐 Время: {time_s}",
-        f"",
-        f"📊 СИГНАЛ:",
+        "",
+        "📊 СИГНАЛ:",
         f"• Вероятность: {proba:.1%}",
         f"• Порог модели: {threshold:.1%}",
         f"• Запас: {gap_pp:+.1f} п.п. ({'сильный' if abs(gap_pp) > 5 else 'умеренный'})",
-        f"",
+        "",
         vol_info,
     ]
 
@@ -264,14 +264,14 @@ def maybe_send_signal_notification(
     # Рекомендации и команды
     msg_lines.append("")
     if final_signal.lower() == "buy":
-        msg_lines.append(f"💡 РЕКОМЕНДАЦИЯ:")
+        msg_lines.append("💡 РЕКОМЕНДАЦИЯ:")
         msg_lines.append(f"Купить на {buy_fraction*100:.0f}% от капитала")
-        msg_lines.append(f"")
-        msg_lines.append(f"🤖 Быстрая команда:")
+        msg_lines.append("")
+        msg_lines.append("🤖 Быстрая команда:")
         msg_lines.append(f"/buy {exchange} {symbol} {buy_fraction}")
     else:
-        msg_lines.append(f"💡 РЕКОМЕНДАЦИЯ:")
-        msg_lines.append(f"Пропустить сделку (не выполнены условия)")
+        msg_lines.append("💡 РЕКОМЕНДАЦИЯ:")
+        msg_lines.append("Пропустить сделку (не выполнены условия)")
         if reasons:
             top_reason = reasons[0] if reasons else "неизвестно"
             msg_lines.append(f"Причина: {top_reason}")

@@ -5,9 +5,6 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 from .db import Price, Article, ArticleAnnotation
-from .onchain import get_onchain_features
-from .macro import get_macro_features
-from .social import get_social_features
 
 # Соответствие таймфреймов pandas (без устаревших 'T'/'H')
 PANDAS_FREQ = {"1m": "1min", "5m": "5min", "15m": "15min", "1h": "1h", "4h": "4h", "1d": "1D"}
@@ -449,7 +446,7 @@ def build_dataset(
     
     print(f"[Features] Dataset built: {len(df)} rows x {len(feature_cols)} features")
     print(f"[Features] Base: 6 price, Lag: 12, Time: 11, Technical: 37, News: {2 + len(TAGS)*2}")
-    print(f"[Features] PHASE 2: Static features (OnChain/Macro/Social: 28) DISABLED")
+    print("[Features] PHASE 2: Static features (OnChain/Macro/Social: 28) DISABLED")
     print(f"[Features] Total dynamic features: {len(feature_cols)} (was 112, removed 28 static)")
     return df, feature_cols
 

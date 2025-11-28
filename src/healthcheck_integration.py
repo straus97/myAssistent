@@ -8,7 +8,6 @@ Healthchecks.io Integration for Uptime Monitoring
 import os
 import logging
 from datetime import datetime
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

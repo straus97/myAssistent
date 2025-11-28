@@ -3,11 +3,8 @@ On-chain метрики через БЕСПЛАТНЫЕ API (CoinGecko, CoinGlas
 НЕ требуется API key! 🚀
 """
 from __future__ import annotations
-import os
 import requests
 from typing import Dict, Optional
-from datetime import datetime, timedelta
-import pandas as pd
 import logging
 import time
 
@@ -134,7 +131,7 @@ def get_coinglass_funding_rate(symbol: str = "BTC") -> Optional[float]:
     """
     try:
         # CoinGlass Public API (без ключа!)
-        url = f"https://fapi.coinglass.com/api/fundingRate/v2/home"
+        url = "https://fapi.coinglass.com/api/fundingRate/v2/home"
         params = {"symbol": symbol}
         response = requests.get(url, params=params, timeout=10)
         
@@ -157,7 +154,7 @@ def get_coinglass_liquidations(symbol: str = "BTC") -> Optional[Dict]:
     Высокие ликвидации = волатильность
     """
     try:
-        url = f"https://fapi.coinglass.com/api/futures/liquidation/chart"
+        url = "https://fapi.coinglass.com/api/futures/liquidation/chart"
         params = {"symbol": symbol, "interval": "h1"}
         response = requests.get(url, params=params, timeout=10)
         

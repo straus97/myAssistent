@@ -440,7 +440,7 @@ def optimize_catboost_cv(
     return study.best_params
 
 
-def train_voting_ensemble(
+def create_voting_ensemble(
     base_models: List[Tuple[str, object]],
     X_train: np.ndarray,
     y_train: np.ndarray
@@ -469,7 +469,7 @@ def train_voting_ensemble(
     return voting_clf
 
 
-def train_stacking_ensemble(
+def create_stacking_ensemble(
     base_models: List[Tuple[str, object]],
     X_train: np.ndarray,
     y_train: np.ndarray
