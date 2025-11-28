@@ -38,20 +38,38 @@ def _insert_prices(
     added = 0
     batch = 0
     for ts, o, h, low, c, v in rows:
-        db.add(
-            Price(
-                exchange=exchange,
-                symbol=symbol,
-                timeframe=timeframe,
-                ts=int(ts),
-                open=float(o),
-                high=float(h),
-                low=float(low),
-                close=float(c),
-                volume=float(v),
+        # Проверяем существование перед вставкой (избегаем UNIQUE constraint ошибок)
+        existing = db.query(Price).filter(
+            Price.exchange == exchange,
+            Price.symbol == symbol,
+            Price.timeframe == timeframe,
+            Price.ts == int(ts)
+        ).first()
+        
+        if existing:
+            # Обновляем существующую запись
+            existing.open = float(o)
+            existing.high = float(h)
+            existing.low = float(low)
+            existing.close = float(c)
+            existing.volume = float(v)
+        else:
+            # Добавляем новую запись
+            db.add(
+                Price(
+                    exchange=exchange,
+                    symbol=symbol,
+                    timeframe=timeframe,
+                    ts=int(ts),
+                    open=float(o),
+                    high=float(h),
+                    low=float(low),
+                    close=float(c),
+                    volume=float(v),
+                )
             )
-        )
-        added += 1
+            added += 1
+        
         batch += 1
         if batch >= 500:
             try:
