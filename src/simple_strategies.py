@@ -107,6 +107,116 @@ def ema_crossover_strategy(
     return signals
 
 
+def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """
+    Расчет ATR (Average True Range) для определения волатильности
+    
+    Args:
+        df: DataFrame с колонками 'high', 'low', 'close'
+        period: Период ATR
+    
+    Returns:
+        Series ATR значений
+    """
+    high_low = df['high'] - df['low']
+    high_close = np.abs(df['high'] - df['close'].shift())
+    low_close = np.abs(df['low'] - df['close'].shift())
+    
+    tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    atr = tr.rolling(window=period).mean()
+    
+    return atr
+
+
+def ema_crossover_advanced_strategy(
+    df: pd.DataFrame,
+    fast_period: int = 12,
+    slow_period: int = 26,
+    rsi_period: int = 14,
+    rsi_overbought: int = 70,
+    rsi_oversold: int = 30,
+    volume_threshold: float = 1.2,
+    atr_period: int = 14
+) -> tuple[pd.Series, pd.DataFrame]:
+    """
+    УЛУЧШЕННАЯ EMA Crossover стратегия с фильтрами
+    
+    Фильтры для BUY сигнала:
+    1. EMA Crossover (Fast crosses above Slow)
+    2. RSI не перекуплен (RSI < 70) - избегаем входа на пике
+    3. Volume выше среднего (подтверждение интереса)
+    4. ATR для адаптивных Stop-Loss/Take-Profit
+    
+    Args:
+        df: DataFrame с колонками 'close', 'high', 'low', 'volume'
+        fast_period: Быстрая EMA (12)
+        slow_period: Медленная EMA (26)
+        rsi_period: Период RSI (14)
+        rsi_overbought: Порог перекупленности (70)
+        rsi_oversold: Порог перепроданности (30)
+        volume_threshold: Множитель для среднего объема (1.2 = +20%)
+        atr_period: Период ATR (14)
+    
+    Returns:
+        Tuple[Series сигналов, DataFrame с индикаторами]
+    """
+    # 1. EMA
+    ema_fast = df['close'].ewm(span=fast_period, adjust=False).mean()
+    ema_slow = df['close'].ewm(span=slow_period, adjust=False).mean()
+    
+    # 2. RSI
+    rsi = calculate_rsi(df['close'], period=rsi_period)
+    
+    # 3. Volume
+    volume_ma = df['volume'].rolling(window=20).mean()
+    volume_confirmed = df['volume'] > (volume_ma * volume_threshold)
+    
+    # 4. ATR
+    atr = calculate_atr(df, period=atr_period)
+    
+    # 5. EMA Crossover detection
+    ema_bullish_cross = (ema_fast > ema_slow) & (ema_fast.shift(1) <= ema_slow.shift(1))
+    ema_bearish_cross = (ema_fast < ema_slow) & (ema_fast.shift(1) >= ema_slow.shift(1))
+    
+    # Инициализация сигналов
+    signals = pd.Series(0, index=df.index)
+    
+    # BUY signal: EMA bullish cross + RSI not overbought + Volume confirmed
+    buy_conditions = (
+        ema_bullish_cross & 
+        (rsi < rsi_overbought) & 
+        volume_confirmed
+    )
+    signals[buy_conditions] = 1
+    
+    # SELL signal: EMA bearish cross OR RSI overbought
+    sell_conditions = ema_bearish_cross | (rsi > rsi_overbought)
+    signals[sell_conditions] = -1
+    
+    # Создаём DataFrame с индикаторами для анализа
+    indicators = pd.DataFrame({
+        'ema_fast': ema_fast,
+        'ema_slow': ema_slow,
+        'rsi': rsi,
+        'volume_ma': volume_ma,
+        'volume_ratio': df['volume'] / volume_ma,
+        'atr': atr,
+        'atr_pct': (atr / df['close']) * 100,  # ATR в % от цены
+        'signal': signals
+    }, index=df.index)
+    
+    # Расчёт адаптивных Stop-Loss и Take-Profit
+    indicators['stop_loss_pct'] = indicators['atr_pct'] * 1.5  # 1.5x ATR
+    indicators['take_profit_pct'] = indicators['atr_pct'] * 3.0  # 3x ATR (R:R = 2:1)
+    
+    logger.info(
+        f"[EMA Advanced] Generated {(signals == 1).sum()} BUY, "
+        f"{(signals == -1).sum()} SELL signals (with RSI/Volume/ATR filters)"
+    )
+    
+    return signals, indicators
+
+
 def bollinger_bands_strategy(
     df: pd.DataFrame,
     period: int = 20,

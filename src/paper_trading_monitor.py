@@ -25,7 +25,7 @@ from .modeling import load_latest_model
 from .trade import paper_get_equity, paper_get_positions
 from .risk import load_policy
 from .notify import send_telegram
-from .simple_strategies import ema_crossover_strategy
+from .simple_strategies import ema_crossover_strategy, ema_crossover_advanced_strategy
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,8 @@ def load_monitor_state() -> Dict:
         "exchange": "bybit",
         "timeframe": "1h",
         "auto_execute": False,  # Автоматическое исполнение сигналов
-        "use_ml_model": True,   # Использовать ML модель (True) или EMA Crossover (False)
+        "use_ml_model": False,  # Использовать ML модель (True) или EMA Crossover (False)
+        "use_advanced_ema": True,  # Использовать улучшенную EMA с фильтрами (рекомендуется!)
         "notifications": True,
         "stats": {
             "total_updates": 0,
@@ -129,17 +130,24 @@ def generate_ema_signals_for_symbols(
     symbols: List[str],
     exchange: str,
     timeframe: str,
-    db: Session
+    db: Session,
+    use_advanced: bool = True
 ) -> List[Dict]:
     """
-    Генерирует сигналы EMA Crossover (9/21) для всех символов
+    Генерирует сигналы EMA Crossover для всех символов
     
-    Используется ВМЕСТО ML модели - простая, но эффективная стратегия!
+    Две версии стратегии:
+    1. SIMPLE (9/21) - базовая стратегия
+    2. ADVANCED (12/26) - с RSI/Volume/ATR фильтрами (рекомендуется!)
+    
+    Args:
+        use_advanced: Использовать улучшенную стратегию (по умолчанию True)
     """
     signals = []
     
     try:
-        logger.info(f"[MONITOR EMA] Generating EMA Crossover signals for {len(symbols)} symbols")
+        strategy_name = "EMA Crossover Advanced (12/26 + RSI/Vol/ATR)" if use_advanced else "EMA Crossover Simple (9/21)"
+        logger.info(f"[MONITOR EMA] Generating {strategy_name} signals for {len(symbols)} symbols")
         
         for symbol in symbols:
             try:
@@ -172,8 +180,31 @@ def generate_ema_signals_for_symbols(
                 
                 df = df.set_index("timestamp")
                 
-                # Генерируем EMA Crossover сигналы (9/21)
-                ema_signals = ema_crossover_strategy(df, fast_period=9, slow_period=21)
+                # Генерируем сигналы (простая или улучшенная стратегия)
+                if use_advanced:
+                    ema_signals, indicators = ema_crossover_advanced_strategy(
+                        df, 
+                        fast_period=12, 
+                        slow_period=26,
+                        rsi_period=14,
+                        rsi_overbought=70,
+                        rsi_oversold=30,
+                        volume_threshold=1.2,
+                        atr_period=14
+                    )
+                    
+                    # Получаем адаптивные уровни Stop-Loss/Take-Profit
+                    latest_indicators = indicators.iloc[-1]
+                    stop_loss_pct = latest_indicators['stop_loss_pct']
+                    take_profit_pct = latest_indicators['take_profit_pct']
+                    rsi_value = latest_indicators['rsi']
+                    volume_ratio = latest_indicators['volume_ratio']
+                else:
+                    ema_signals = ema_crossover_strategy(df, fast_period=9, slow_period=21)
+                    stop_loss_pct = 2.0  # Фиксированный 2%
+                    take_profit_pct = 5.0  # Фиксированный 5%
+                    rsi_value = None
+                    volume_ratio = None
                 
                 # Последний сигнал
                 latest_signal = int(ema_signals.iloc[-1])
@@ -190,12 +221,24 @@ def generate_ema_signals_for_symbols(
                         "price": current_price,
                         "timestamp": str(timestamp),
                         "probability": 0.85,  # Фиксированная "вероятность" для совместимости
-                        "strategy": "EMA Crossover (9/21)",
-                        "vol_state": "normal"  # Можно добавить определение волатильности
+                        "strategy": strategy_name,
+                        "vol_state": "normal",
+                        "stop_loss_pct": float(stop_loss_pct),
+                        "take_profit_pct": float(take_profit_pct),
+                        "rsi": float(rsi_value) if rsi_value is not None else None,
+                        "volume_ratio": float(volume_ratio) if volume_ratio is not None else None
                     }
                     
                     signals.append(signal_data)
-                    logger.info(f"[MONITOR EMA] BUY signal for {symbol} @ ${current_price:.4f}")
+                    
+                    if use_advanced:
+                        logger.info(
+                            f"[MONITOR EMA] BUY signal for {symbol} @ ${current_price:.4f} "
+                            f"(RSI: {rsi_value:.1f}, Vol: {volume_ratio:.2f}x, "
+                            f"SL: {stop_loss_pct:.2f}%, TP: {take_profit_pct:.2f}%)"
+                        )
+                    else:
+                        logger.info(f"[MONITOR EMA] BUY signal for {symbol} @ ${current_price:.4f}")
                 
             except Exception as e:
                 logger.error(f"[MONITOR EMA] Error processing {symbol}: {e}")
@@ -411,14 +454,18 @@ def run_monitor_update() -> Dict:
         # 2. Генерируем сигналы
         db = SessionLocal()
         try:
-            use_ml = state.get("use_ml_model", True)  # По умолчанию используем ML
+            use_ml = state.get("use_ml_model", False)  # По умолчанию EMA Crossover
+            use_advanced_ema = state.get("use_advanced_ema", True)  # По умолчанию улучшенная версия
             
             if use_ml:
                 logger.info("[MONITOR] Generating ML model signals...")
                 signals = generate_signals_for_symbols(symbols, exchange, timeframe, db)
             else:
-                logger.info("[MONITOR] Generating EMA Crossover signals...")
-                signals = generate_ema_signals_for_symbols(symbols, exchange, timeframe, db)
+                strategy_type = "Advanced (с фильтрами)" if use_advanced_ema else "Simple"
+                logger.info(f"[MONITOR] Generating EMA Crossover signals ({strategy_type})...")
+                signals = generate_ema_signals_for_symbols(
+                    symbols, exchange, timeframe, db, use_advanced=use_advanced_ema
+                )
             
             results["signals"] = signals
             logger.info(f"[MONITOR] Generated {len(signals)} signals")
