@@ -59,14 +59,32 @@ def _max_age_minutes(tf: str, policy: dict | None) -> int:
     return max(tf_min * 2, 10)
 
 
+def _to_epoch_seconds(ts) -> float:
+    if ts is None:
+        return 0.0
+    try:
+        if hasattr(ts, "tzinfo"):
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            else:
+                ts = ts.astimezone(timezone.utc)
+            return ts.timestamp()
+        if isinstance(ts, (int, float)):
+            return float(ts / 1000.0) if ts > 1e12 else float(ts)
+    except Exception:
+        return 0.0
+    return 0.0
+
+
 def _is_bar_stale(bar_dt, tf: str, policy: dict | None) -> tuple[bool, float, int]:
     if not bar_dt:
         return True, 0.0, _max_age_minutes(tf, policy)
-    if bar_dt.tzinfo is None:
-        bar_dt = bar_dt.replace(tzinfo=timezone.utc)
-    now = datetime.now(timezone.utc)
-    age_min = max(0.0, (now - bar_dt).total_seconds() / 60.0)
+    now_epoch = datetime.now(timezone.utc).timestamp()
+    bar_epoch = _to_epoch_seconds(bar_dt)
     limit = _max_age_minutes(tf, policy)
+    if bar_epoch <= 0:
+        return True, 0.0, limit
+    age_min = max(0.0, (now_epoch - bar_epoch) / 60.0)
     return age_min > limit, age_min, limit
 
 

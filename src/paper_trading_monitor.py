@@ -52,13 +52,33 @@ def _tf_to_minutes(tf: str) -> int:
     return 15
 
 
+def _to_epoch_seconds(ts) -> float:
+    if ts is None:
+        return 0.0
+    try:
+        if isinstance(ts, pd.Timestamp):
+            return ts.value / 1e9
+        if hasattr(ts, "tzinfo"):
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            else:
+                ts = ts.astimezone(timezone.utc)
+            return ts.timestamp()
+        if isinstance(ts, (int, float)):
+            return float(ts / 1000.0) if ts > 1e12 else float(ts)
+    except Exception:
+        return 0.0
+    return 0.0
+
+
 def _is_stale_bar(ts: pd.Timestamp, timeframe: str) -> tuple[bool, float, int]:
     if ts is None:
         return True, 0.0, 0
-    if ts.tzinfo is None:
-        ts = ts.tz_localize(timezone.utc)
-    now = datetime.now(timezone.utc)
-    age_min = max(0.0, (now - ts.to_pydatetime()).total_seconds() / 60.0)
+    now_epoch = datetime.now(timezone.utc).timestamp()
+    ts_epoch = _to_epoch_seconds(ts)
+    if ts_epoch <= 0:
+        return True, 0.0, 0
+    age_min = max(0.0, (now_epoch - ts_epoch) / 60.0)
     limit = max(_tf_to_minutes(timeframe) * 2, 10)
     return age_min > limit, age_min, limit
 
