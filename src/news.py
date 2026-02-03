@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timezone, timedelta
+import os
 from dateutil import parser as dtparse
 import feedparser
 from urllib.parse import urlparse
@@ -11,14 +12,15 @@ from src.db import Article, ArticleAnnotation
 from .news_url import canonicalize_url
 import re
 
-# Базовый список лент (можно расширять конфигом позже)
-FEEDS = [
+# Базовый список лент (можно переопределить через NEWS_FEEDS)
+_DEFAULT_FEEDS = [
     "https://cointelegraph.com/rss",
     "https://www.coindesk.com/arc/outboundfeeds/rss/",
-    "https://www.theblock.co/rss",
-    "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml",
-    "https://www.reuters.com/markets/cryptocurrency/rss",
+    "https://cryptopanic.com/news/rss/",
 ]
+
+_env_feeds = [f.strip() for f in (os.getenv("NEWS_FEEDS") or "").split(",") if f.strip()]
+FEEDS = _env_feeds or _DEFAULT_FEEDS
 
 
 def _hostname(url: str) -> str:

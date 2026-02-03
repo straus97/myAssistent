@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import json
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -36,6 +36,31 @@ EQUITY_HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
 # Путь к файлу состояния монитора
 MONITOR_STATE_PATH = Path("artifacts/state/paper_monitor.json")
 MONITOR_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _tf_to_minutes(tf: str) -> int:
+    tf = (tf or "").lower().strip()
+    try:
+        if tf.endswith("m"):
+            return max(1, int(tf[:-1]))
+        if tf.endswith("h"):
+            return max(1, int(tf[:-1])) * 60
+        if tf.endswith("d"):
+            return max(1, int(tf[:-1])) * 1440
+    except Exception:
+        return 15
+    return 15
+
+
+def _is_stale_bar(ts: pd.Timestamp, timeframe: str) -> tuple[bool, float, int]:
+    if ts is None:
+        return True, 0.0, 0
+    if ts.tzinfo is None:
+        ts = ts.tz_localize(timezone.utc)
+    now = datetime.now(timezone.utc)
+    age_min = max(0.0, (now - ts.to_pydatetime()).total_seconds() / 60.0)
+    limit = max(_tf_to_minutes(timeframe) * 2, 10)
+    return age_min > limit, age_min, limit
 
 
 def load_monitor_state() -> Dict:
@@ -208,8 +233,16 @@ def generate_ema_signals_for_symbols(
                 
                 # Последний сигнал
                 latest_signal = int(ema_signals.iloc[-1])
-                current_price = float(df['close'].iloc[-1])
+                current_price = float(df["close"].iloc[-1])
                 timestamp = df.index[-1]
+
+                # Проверка свежести данных
+                stale, age_min, limit = _is_stale_bar(timestamp, timeframe)
+                if stale:
+                    logger.warning(
+                        f"[MONITOR EMA] Stale data for {symbol}: age={age_min:.1f}m > limit={limit}m"
+                    )
+                    continue
                 
                 # Только BUY сигналы
                 if latest_signal == 1:
@@ -226,7 +259,8 @@ def generate_ema_signals_for_symbols(
                         "stop_loss_pct": float(stop_loss_pct),
                         "take_profit_pct": float(take_profit_pct),
                         "rsi": float(rsi_value) if rsi_value is not None else None,
-                        "volume_ratio": float(volume_ratio) if volume_ratio is not None else None
+                        "volume_ratio": float(volume_ratio) if volume_ratio is not None else None,
+                        "data_age_min": float(age_min),
                     }
                     
                     signals.append(signal_data)
@@ -302,6 +336,15 @@ def generate_signals_for_symbols(
                 X = df[feature_cols].iloc[[-1]].fillna(0)
                 proba = model.predict_proba(X)[0, 1]
                 
+                # Проверка свежести данных
+                last_ts = df.index[-1]
+                stale, age_min, limit = _is_stale_bar(last_ts, timeframe)
+                if stale:
+                    logger.warning(
+                        f"[MONITOR] Stale data for {symbol}: age={age_min:.1f}m > limit={limit}m"
+                    )
+                    continue
+
                 # Простая проверка порога вероятности
                 min_prob = policy.get("min_probability", 0.55)
                 
@@ -314,7 +357,8 @@ def generate_signals_for_symbols(
                         "probability": float(proba),
                         "action": "BUY",
                         "price": float(last_row.get("close", 0)),
-                        "vol_state": "normal"
+                        "vol_state": "normal",
+                        "data_age_min": float(age_min),
                     }
                     
                     signals.append(signal)
@@ -354,6 +398,8 @@ def execute_signals_if_enabled(signals: List[Dict], auto_execute: bool) -> None:
                 
                 if result.get("status") == "ok":
                     logger.info(f"[MONITOR] Successfully executed: {result}")
+                elif result.get("status") == "skip":
+                    logger.info(f"[MONITOR] Skipped execution: {result.get('detail')}")
                 else:
                     logger.warning(f"[MONITOR] Failed to execute: {result}")
             
@@ -377,21 +423,43 @@ def send_notification_if_enabled(
         equity = equity_data.get("equity", 0)
         pnl = equity_data.get("total_pnl", 0)
         pnl_pct = (pnl / 10000.0) * 100 if equity > 0 else 0
-        
+
         message = "[PAPER TRADING] Новые сигналы!\n\n"
         message += f"Equity: ${equity:.2f} ({pnl_pct:+.2f}%)\n"
         message += f"Позиций: {equity_data.get('n_positions', 0)}\n\n"
-        
+
         for sig in signals[:3]:  # Первые 3 сигнала
-            message += f"{sig['symbol']}: BUY @ ${sig['price']:.2f}\n"
-            message += f"Probability: {sig['probability']:.1%}\n\n"
-        
+            sym = sig.get("symbol", "?")
+            px = float(sig.get("price", 0))
+            tf = sig.get("timeframe", "")
+            strategy = sig.get("strategy") or ""
+            age_min = sig.get("data_age_min")
+            message += f"{sym} ({tf}) BUY @ ${px:.2f}\n"
+            if strategy:
+                message += f"Strategy: {strategy}\n"
+            if isinstance(age_min, (int, float)):
+                message += f"Data age: {age_min:.0f} min\n"
+            prob = sig.get("probability")
+            if isinstance(prob, (int, float)):
+                message += f"Probability: {float(prob):.1%}\n"
+            sl = sig.get("stop_loss_pct")
+            tp = sig.get("take_profit_pct")
+            if isinstance(sl, (int, float)) and isinstance(tp, (int, float)):
+                message += f"SL/TP: -{float(sl):.2f}% / +{float(tp):.2f}%\n"
+            rsi = sig.get("rsi")
+            vr = sig.get("volume_ratio")
+            if isinstance(rsi, (int, float)):
+                message += f"RSI: {float(rsi):.1f}\n"
+            if isinstance(vr, (int, float)):
+                message += f"Vol: {float(vr):.2f}x\n"
+            message += "\n"
+
         if len(signals) > 3:
             message += f"... и еще {len(signals) - 3} сигналов"
-        
+
         send_telegram(message)
         logger.info("[MONITOR] Notification sent")
-    
+
     except Exception as e:
         logger.error(f"[MONITOR] Error sending notification: {e}")
 

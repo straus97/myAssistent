@@ -5,7 +5,7 @@ from typing import Any, Dict, Tuple
 import requests
 from .risk import load_policy
 import math
-from datetime import timezone as _tz
+from datetime import datetime, timezone as _tz
 
 CFG_DIR = Path("artifacts") / "config"
 CFG_DIR.mkdir(parents=True, exist_ok=True)
@@ -91,6 +91,31 @@ def _ts_hhmm_utc(dt) -> str:
         return str(dt)
 
 
+def _tf_to_minutes(tf: str) -> int:
+    tf = (tf or "").lower().strip()
+    try:
+        if tf.endswith("m"):
+            return max(1, int(tf[:-1]))
+        if tf.endswith("h"):
+            return max(1, int(tf[:-1])) * 60
+        if tf.endswith("d"):
+            return max(1, int(tf[:-1])) * 1440
+    except Exception:
+        return 15
+    return 15
+
+
+def _max_age_minutes(tf: str, policy: dict | None) -> int:
+    raw = ((policy or {}).get("notify") or {}).get("max_age_minutes")
+    if isinstance(raw, (int, float)) and raw > 0:
+        return int(raw)
+    raw = (policy or {}).get("max_signal_age_minutes")
+    if isinstance(raw, (int, float)) and raw > 0:
+        return int(raw)
+    tf_min = _tf_to_minutes(tf)
+    return max(tf_min * 2, 10)
+
+
 def _vol_emoji(state: str | None) -> str:
     return {"hot": "🔥", "dead": "🧊", "normal": "〰️"}.get((state or "normal"), "〰️")
 
@@ -130,6 +155,20 @@ def maybe_send_signal_notification(
     pol = load_policy() or {}
     notify_pol = pol.get("notify") or {}
     style = str(notify_pol.get("style", "simple")).lower()
+
+    # 2.1) защита от устаревших данных
+    if bar_dt is None:
+        return
+    age_min = None
+    try:
+        if bar_dt.tzinfo is None:
+            bar_dt = bar_dt.replace(tzinfo=_tz.utc)
+        age_min = max(0.0, (datetime.now(_tz.utc) - bar_dt).total_seconds() / 60.0)
+        age_limit = _max_age_minutes(timeframe, pol)
+        if age_min > age_limit:
+            return
+    except Exception:
+        age_min = None
 
     # 3) сырой стиль на случай отладки
     if style == "raw":
@@ -235,6 +274,10 @@ def maybe_send_signal_notification(
         f"⏰ Таймфрейм: {timeframe}",
         f"💵 Цена: {price_s}",
         f"🕐 Время: {time_s}",
+    ]
+    if isinstance(age_min, (int, float)):
+        msg_lines.append(f"⏳ Давность: {age_min:.0f} мин")
+    msg_lines += [
         "",
         "📊 СИГНАЛ:",
         f"• Вероятность: {proba:.1%}",

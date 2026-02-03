@@ -4,6 +4,7 @@
 from __future__ import annotations
 import json
 from typing import Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -36,6 +37,39 @@ def _last_close(db: Session, exchange: str, symbol: str, timeframe: str) -> Opti
     return float(r.close) if r else None
 
 
+def _tf_to_minutes(tf: str) -> int:
+    tf = (tf or "").lower().strip()
+    try:
+        if tf.endswith("m"):
+            return max(1, int(tf[:-1]))
+        if tf.endswith("h"):
+            return max(1, int(tf[:-1])) * 60
+        if tf.endswith("d"):
+            return max(1, int(tf[:-1])) * 1440
+    except Exception:
+        return 15
+    return 15
+
+
+def _max_age_minutes(tf: str, policy: dict | None) -> int:
+    raw = (policy or {}).get("max_signal_age_minutes")
+    if isinstance(raw, (int, float)) and raw > 0:
+        return int(raw)
+    tf_min = _tf_to_minutes(tf)
+    return max(tf_min * 2, 10)
+
+
+def _is_bar_stale(bar_dt, tf: str, policy: dict | None) -> tuple[bool, float, int]:
+    if not bar_dt:
+        return True, 0.0, _max_age_minutes(tf, policy)
+    if bar_dt.tzinfo is None:
+        bar_dt = bar_dt.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    age_min = max(0.0, (now - bar_dt).total_seconds() / 60.0)
+    limit = _max_age_minutes(tf, policy)
+    return age_min > limit, age_min, limit
+
+
 def _compute_signal_for_last_bar(db: Session, ex: str, sym: str, tf: str, hz: int, model_path: Optional[str]):
     """Вычисляет сигнал для последнего бара датасета (без сохранения в БД)"""
     df, _ = build_dataset(db, ex, sym, tf, hz)
@@ -45,6 +79,14 @@ def _compute_signal_for_last_bar(db: Session, ex: str, sym: str, tf: str, hz: in
     row = df.iloc[-1]
     bar_dt = row.name.to_pydatetime()
     close = float(row["close"])
+
+    policy = load_policy()
+    is_stale, age_min, limit = _is_bar_stale(bar_dt, tf, policy)
+    if is_stale:
+        return {
+            "status": "error",
+            "detail": f"Данные устарели: age={age_min:.1f}m > limit={limit}m",
+        }
 
     if model_path:
         model, feature_cols, threshold, model_path = load_model_from_path(model_path)
@@ -63,7 +105,6 @@ def _compute_signal_for_last_bar(db: Session, ex: str, sym: str, tf: str, hz: in
     base_signal = "buy" if proba > threshold else "flat"
     delta = proba - threshold
 
-    policy = load_policy()
     min_gap = float((policy or {}).get("min_prob_gap", 0.02))
     last_evt = (
         db.query(SignalEvent)
@@ -126,6 +167,11 @@ def signal_latest(req: SignalRequest, db: Session = Depends(get_db), _=Depends(r
         bar_dt = row.name.to_pydatetime()
         close = float(row["close"])
 
+        policy = load_policy()
+        is_stale, age_min, limit = _is_bar_stale(bar_dt, req.timeframe, policy)
+        if is_stale:
+            return {"status": "error", "detail": f"Данные устарели: age={age_min:.1f}m > limit={limit}m"}
+
         if req.model_path:
             model, feature_cols, threshold, model_path = load_model_from_path(req.model_path)
         else:
@@ -144,7 +190,6 @@ def signal_latest(req: SignalRequest, db: Session = Depends(get_db), _=Depends(r
         base_signal = "buy" if proba > threshold else "flat"
         delta = proba - threshold
 
-        policy = load_policy()
         last_evt = (
             db.query(SignalEvent)
             .filter(

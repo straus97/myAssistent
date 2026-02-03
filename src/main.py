@@ -590,9 +590,11 @@ def job_risk_checks():
 
 def job_healthcheck_ping():
     """Healthchecks.io - ping каждые 5 минут для uptime monitoring"""
-    from src.healthcheck_integration import healthcheck_with_system_status
+    from src.healthcheck_integration import healthcheck_with_system_status, HEALTHCHECK_URL
     
     try:
+        if not HEALTHCHECK_URL:
+            return
         success = healthcheck_with_system_status()
         if not success:
             print("[scheduler] healthcheck_ping: failed (check HEALTHCHECK_URL)")

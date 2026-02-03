@@ -15,6 +15,7 @@ log = logging.getLogger("automation")
 BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:8000")
 TIMEOUT = float(os.getenv("APP_HTTP_TIMEOUT", "25"))
 CONCURRENCY_HINT = int(os.getenv("APP_AUTOMATION_CONCURRENCY", "1"))
+API_KEY = (os.getenv("API_KEY") or "").strip()
 
 _scheduler: BackgroundScheduler | None = None
 _lock = threading.Lock()
@@ -22,9 +23,10 @@ _lock = threading.Lock()
 
 def _call(method: str, path: str, json_body: Dict[str, Any] | None = None) -> Dict[str, Any]:
     url = f"{BASE_URL}{path}"
+    headers = {"X-API-Key": API_KEY} if API_KEY else {}
     for attempt in range(3):
         try:
-            r = requests.request(method, url, json=json_body, timeout=TIMEOUT)
+            r = requests.request(method, url, json=json_body, timeout=TIMEOUT, headers=headers)
             if r.ok:
                 return r.json() if r.content else {}
             log.warning("HTTP %s %s -> %s %s", method, path, r.status_code, r.text[:200])
@@ -104,7 +106,7 @@ def job_signals_cycle():
             "timeframe": p["timeframe"],
             "horizon_steps": int(os.getenv("HORIZON_STEPS", "12")),
         }
-        _call("POST", "/signal/latest", base)
+        _call("POST", "/signals/latest", base)
 
 
 def job_daily_report():
