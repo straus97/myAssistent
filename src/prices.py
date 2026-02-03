@@ -1,6 +1,8 @@
 from __future__ import annotations
 import math
+import os
 from typing import List, Tuple
+from datetime import datetime, timezone
 import requests
 from sqlalchemy.orm import Session
 from src.db import Price
@@ -95,11 +97,16 @@ def _fetch_binance(symbol: str, timeframe: str, limit: int) -> List[Tuple[int, f
     return out
 
 
-def _fetch_bybit(symbol: str, timeframe: str, limit: int) -> List[Tuple[int, float, float, float, float, float]]:
-    # Spot категория подходит для BTCUSDT/ETHUSDT и большей части watchlist
+def _fetch_bybit(
+    symbol: str,
+    timeframe: str,
+    limit: int,
+    *,
+    category: str = "spot",
+) -> List[Tuple[int, float, float, float, float, float]]:
     url = "https://api.bybit.com/v5/market/kline"
     params = {
-        "category": "spot",
+        "category": category,
         "symbol": _binance_symbol(symbol),
         "interval": _bybit_interval(timeframe),
         "limit": int(limit),
@@ -118,6 +125,30 @@ def _fetch_bybit(symbol: str, timeframe: str, limit: int) -> List[Tuple[int, flo
     return out[-limit:]
 
 
+def _tf_to_minutes(tf: str) -> int:
+    tf = (tf or "").lower().strip()
+    try:
+        if tf.endswith("m"):
+            return max(1, int(tf[:-1]))
+        if tf.endswith("h"):
+            return max(1, int(tf[:-1])) * 60
+        if tf.endswith("d"):
+            return max(1, int(tf[:-1])) * 1440
+    except Exception:
+        return 15
+    return 15
+
+
+def _is_stale_rows(rows: List[Tuple[int, float, float, float, float, float]], timeframe: str) -> tuple[bool, float]:
+    if not rows:
+        return True, 0.0
+    last_ts_ms = int(rows[-1][0])
+    dt = datetime.fromtimestamp(last_ts_ms / 1000.0, tz=timezone.utc)
+    age_min = max(0.0, (datetime.now(timezone.utc) - dt).total_seconds() / 60.0)
+    limit = max(_tf_to_minutes(timeframe) * 2, 10)
+    return age_min > limit, age_min
+
+
 # --- публичное API ---
 def fetch_and_store_prices(db: Session, exchange: str, symbol: str, timeframe: str, limit: int = 500) -> int:
     """
@@ -132,7 +163,18 @@ def fetch_and_store_prices(db: Session, exchange: str, symbol: str, timeframe: s
     if exchange == "binance":
         rows = _fetch_binance(symbol, timeframe, limit)
     elif exchange == "bybit":
-        rows = _fetch_bybit(symbol, timeframe, limit)
+        category = (os.getenv("BYBIT_CATEGORY") or "spot").strip().lower() or "spot"
+        rows = _fetch_bybit(symbol, timeframe, limit, category=category)
+        stale, age_min = _is_stale_rows(rows, timeframe)
+        if stale:
+            fallback = (os.getenv("BYBIT_FALLBACK_CATEGORY") or "linear").strip().lower() or "linear"
+            if fallback != category:
+                rows_fb = _fetch_bybit(symbol, timeframe, limit, category=fallback)
+                stale_fb, age_min_fb = _is_stale_rows(rows_fb, timeframe)
+                if not stale_fb:
+                    rows = rows_fb
+                else:
+                    print(f"[prices] bybit stale ({category} age={age_min:.1f}m; fallback {fallback} age={age_min_fb:.1f}m)")
     else:
         raise ValueError(f"unsupported exchange '{exchange}'")
 
