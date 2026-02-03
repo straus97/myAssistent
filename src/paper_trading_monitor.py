@@ -552,6 +552,7 @@ def run_monitor_update() -> Dict:
         }
     
     logger.info("[MONITOR] Starting update cycle...")
+    print("[MONITOR] update cycle started")
     
     results = {
         "status": "ok",
@@ -597,6 +598,7 @@ def run_monitor_update() -> Dict:
             
             results["signals"] = signals
             logger.info(f"[MONITOR] Generated {len(signals)} signals")
+            print(f"[MONITOR] signals generated: {len(signals)}")
         except Exception as e:
             logger.error(f"[MONITOR] Error generating signals: {e}", exc_info=True)
             results["errors"].append(f"Signal generation error: {e}")
@@ -606,7 +608,10 @@ def run_monitor_update() -> Dict:
             # 3. Исполняем сигналы (если включено)
             if state.get("auto_execute", False) and signals:
                 logger.info(f"[MONITOR] Auto-executing {len(signals)} signals...")
+                print(f"[MONITOR] auto-executing: {len(signals)}")
                 execute_signals_if_enabled(signals, True)
+            elif not signals:
+                print("[MONITOR] no signals to execute")
         except Exception as e:
             logger.error(f"[MONITOR] Error executing signals: {e}", exc_info=True)
             results["errors"].append(f"Signal execution error: {e}")
@@ -648,6 +653,7 @@ def run_monitor_update() -> Dict:
             
             save_monitor_state(state)
             logger.info("[MONITOR] Update cycle completed successfully")
+            print("[MONITOR] update cycle completed")
         except Exception as e:
             logger.error(f"[MONITOR] Error saving monitor state: {e}", exc_info=True)
             results["errors"].append(f"State save error: {e}")
