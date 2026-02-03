@@ -76,6 +76,19 @@ def _to_epoch_seconds(ts) -> float:
     return 0.0
 
 
+def _get_last_price_ts_ms(db: Session, exchange: str, symbol: str, timeframe: str) -> int | None:
+    try:
+        row = (
+            db.query(Price.ts)
+            .filter(Price.exchange == exchange, Price.symbol == symbol, Price.timeframe == timeframe)
+            .order_by(Price.ts.desc())
+            .first()
+        )
+        return int(row[0]) if row and row[0] is not None else None
+    except Exception:
+        return None
+
+
 def _is_bar_stale(bar_dt, tf: str, policy: dict | None) -> tuple[bool, float, int]:
     if not bar_dt:
         return True, 0.0, _max_age_minutes(tf, policy)
@@ -85,6 +98,17 @@ def _is_bar_stale(bar_dt, tf: str, policy: dict | None) -> tuple[bool, float, in
     if bar_epoch <= 0:
         return True, 0.0, limit
     age_min = max(0.0, (now_epoch - bar_epoch) / 60.0)
+    return age_min > limit, age_min, limit
+
+
+def _is_price_stale(db: Session, exchange: str, symbol: str, timeframe: str, policy: dict | None) -> tuple[bool, float, int]:
+    limit = _max_age_minutes(timeframe, policy)
+    last_ts_ms = _get_last_price_ts_ms(db, exchange, symbol, timeframe)
+    if not last_ts_ms:
+        return True, 0.0, limit
+    now_epoch = datetime.now(timezone.utc).timestamp()
+    ts_epoch = float(last_ts_ms) / 1000.0
+    age_min = max(0.0, (now_epoch - ts_epoch) / 60.0)
     return age_min > limit, age_min, limit
 
 
@@ -99,7 +123,7 @@ def _compute_signal_for_last_bar(db: Session, ex: str, sym: str, tf: str, hz: in
     close = float(row["close"])
 
     policy = load_policy()
-    is_stale, age_min, limit = _is_bar_stale(bar_dt, tf, policy)
+    is_stale, age_min, limit = _is_price_stale(db, ex, sym, tf, policy)
     if is_stale:
         return {
             "status": "error",
@@ -186,7 +210,7 @@ def signal_latest(req: SignalRequest, db: Session = Depends(get_db), _=Depends(r
         close = float(row["close"])
 
         policy = load_policy()
-        is_stale, age_min, limit = _is_bar_stale(bar_dt, req.timeframe, policy)
+        is_stale, age_min, limit = _is_price_stale(db, req.exchange, req.symbol, req.timeframe, policy)
         if is_stale:
             return {"status": "error", "detail": f"Данные устарели: age={age_min:.1f}m > limit={limit}m"}
 
