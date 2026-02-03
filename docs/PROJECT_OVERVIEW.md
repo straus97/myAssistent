@@ -179,7 +179,18 @@ myAssistent/
   "slip_bps": 5.0,                // проскальзывание
   "volatility_thresholds": {...}, // dead/hot границы
   "monitor": {...},               // мониторинг позиций
-  "news_radar": {...}             // детектор всплесков
+   "news_radar": {...},            // детектор всплесков
+   "ema_strategy": {               // настройки EMA-стратегии монитора
+      "fast_period": 12,
+      "slow_period": 26,
+      "rsi_period": 14,
+      "rsi_overbought": 70,
+      "rsi_oversold": 30,
+      "volume_threshold": 1.2,
+      "atr_period": 14,
+      "fast_period_simple": 9,
+      "slow_period_simple": 21
+   }
 }
 ```
 

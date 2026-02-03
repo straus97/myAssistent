@@ -213,6 +213,8 @@ def generate_ema_signals_for_symbols(
     signals = []
     
     try:
+        policy = load_policy() or {}
+        ema_cfg = (policy.get("ema_strategy") or {}) if isinstance(policy, dict) else {}
         strategy_name = "EMA Crossover Advanced (12/26 + RSI/Vol/ATR)" if use_advanced else "EMA Crossover Simple (9/21)"
         logger.info(f"[MONITOR EMA] Generating {strategy_name} signals for {len(symbols)} symbols")
         
@@ -249,15 +251,23 @@ def generate_ema_signals_for_symbols(
                 
                 # Генерируем сигналы (простая или улучшенная стратегия)
                 if use_advanced:
+                    fast_period = int(ema_cfg.get("fast_period", 12))
+                    slow_period = int(ema_cfg.get("slow_period", 26))
+                    rsi_period = int(ema_cfg.get("rsi_period", 14))
+                    rsi_overbought = float(ema_cfg.get("rsi_overbought", 70))
+                    rsi_oversold = float(ema_cfg.get("rsi_oversold", 30))
+                    volume_threshold = float(ema_cfg.get("volume_threshold", 1.2))
+                    atr_period = int(ema_cfg.get("atr_period", 14))
+
                     ema_signals, indicators = ema_crossover_advanced_strategy(
-                        df, 
-                        fast_period=12, 
-                        slow_period=26,
-                        rsi_period=14,
-                        rsi_overbought=70,
-                        rsi_oversold=30,
-                        volume_threshold=1.2,
-                        atr_period=14
+                        df,
+                        fast_period=fast_period,
+                        slow_period=slow_period,
+                        rsi_period=rsi_period,
+                        rsi_overbought=rsi_overbought,
+                        rsi_oversold=rsi_oversold,
+                        volume_threshold=volume_threshold,
+                        atr_period=atr_period,
                     )
                     
                     # Получаем адаптивные уровни Stop-Loss/Take-Profit
@@ -267,7 +277,9 @@ def generate_ema_signals_for_symbols(
                     rsi_value = latest_indicators['rsi']
                     volume_ratio = latest_indicators['volume_ratio']
                 else:
-                    ema_signals = ema_crossover_strategy(df, fast_period=9, slow_period=21)
+                    fast_period = int(ema_cfg.get("fast_period_simple", 9))
+                    slow_period = int(ema_cfg.get("slow_period_simple", 21))
+                    ema_signals = ema_crossover_strategy(df, fast_period=fast_period, slow_period=slow_period)
                     stop_loss_pct = 2.0  # Фиксированный 2%
                     take_profit_pct = 5.0  # Фиксированный 5%
                     rsi_value = None
