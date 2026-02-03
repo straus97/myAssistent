@@ -443,9 +443,10 @@ def execute_signals_if_enabled(signals: List[Dict], auto_execute: bool) -> None:
                     vol_state=signal.get("vol_state", "normal")
                 )
                 
-                if result.get("status") == "ok":
+                status = result.get("status")
+                if status in (None, "ok"):
                     logger.info(f"[MONITOR] Successfully executed: {result}")
-                elif result.get("status") == "skip":
+                elif status == "skip":
                     logger.info(f"[MONITOR] Skipped execution: {result.get('detail')}")
                 else:
                     logger.warning(f"[MONITOR] Failed to execute: {result}")
