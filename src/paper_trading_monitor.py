@@ -83,6 +83,28 @@ def _is_stale_bar(ts: pd.Timestamp, timeframe: str) -> tuple[bool, float, int]:
     return age_min > limit, age_min, limit
 
 
+def _age_minutes_from_ms(ts_ms: int) -> float:
+    try:
+        now_epoch = datetime.now(timezone.utc).timestamp()
+        ts_epoch = float(ts_ms) / 1000.0
+        return max(0.0, (now_epoch - ts_epoch) / 60.0)
+    except Exception:
+        return 0.0
+
+
+def _get_last_ts_ms(db: Session, exchange: str, symbol: str, timeframe: str) -> int | None:
+    try:
+        row = (
+            db.query(Price.ts)
+            .filter(Price.exchange == exchange, Price.symbol == symbol, Price.timeframe == timeframe)
+            .order_by(Price.ts.desc())
+            .first()
+        )
+        return int(row[0]) if row and row[0] is not None else None
+    except Exception:
+        return None
+
+
 def load_monitor_state() -> Dict:
     """Загружает состояние монитора"""
     if MONITOR_STATE_PATH.exists():
@@ -256,8 +278,11 @@ def generate_ema_signals_for_symbols(
                 current_price = float(df["close"].iloc[-1])
                 timestamp = df.index[-1]
 
-                # Проверка свежести данных
-                stale, age_min, limit = _is_stale_bar(timestamp, timeframe)
+                # Проверка свежести данных (по БД)
+                last_ts_ms = prices_query[-1].ts if prices_query else None
+                age_min = _age_minutes_from_ms(int(last_ts_ms)) if last_ts_ms else 0.0
+                limit = max(_tf_to_minutes(timeframe) * 2, 10)
+                stale = bool(last_ts_ms) and age_min > limit
                 if stale:
                     logger.warning(
                         f"[MONITOR EMA] Stale data for {symbol}: age={age_min:.1f}m > limit={limit}m"
@@ -356,9 +381,11 @@ def generate_signals_for_symbols(
                 X = df[feature_cols].iloc[[-1]].fillna(0)
                 proba = model.predict_proba(X)[0, 1]
                 
-                # Проверка свежести данных
-                last_ts = df.index[-1]
-                stale, age_min, limit = _is_stale_bar(last_ts, timeframe)
+                # Проверка свежести данных (по БД)
+                last_ts_ms = _get_last_ts_ms(db, exchange, symbol, timeframe)
+                age_min = _age_minutes_from_ms(int(last_ts_ms)) if last_ts_ms else 0.0
+                limit = max(_tf_to_minutes(timeframe) * 2, 10)
+                stale = bool(last_ts_ms) and age_min > limit
                 if stale:
                     logger.warning(
                         f"[MONITOR] Stale data for {symbol}: age={age_min:.1f}m > limit={limit}m"
